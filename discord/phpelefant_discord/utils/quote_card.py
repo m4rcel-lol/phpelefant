@@ -186,10 +186,10 @@ def render_quote_card(data: QuoteCardData) -> bytes:
 
     avatar_size = 260
     
-    col_left_min_h = CONTENT_PAD + avatar_size + 85
+    col_left_min_h = CONTENT_PAD + avatar_size + 130
     right_content_h = quote_height + CONTENT_PAD * 2 + 40
 
-    table_content_h = max(col_left_min_h, right_content_h)
+    table_content_h = max(col_left_min_h, right_content_h, MIN_HEIGHT - OUTER_PAD * 2 - HEADER_H)
     
     card_h = HEADER_H + table_content_h
     height = max(MIN_HEIGHT, card_h + OUTER_PAD * 2)

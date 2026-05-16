@@ -203,6 +203,11 @@ Fun:
 - `slap`
 - `cat`
 - `dog`
+- `httpcat`
+- `httpdog`
+- `choose`
+- `rate`
+- `avatar`
 - `poll`
 - `quiz`
 

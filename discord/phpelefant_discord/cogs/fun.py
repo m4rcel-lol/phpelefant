@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import io
 import random
+import re
+from urllib.parse import urlparse
 
+import aiohttp
 import discord
 from discord.ext import commands
 
@@ -23,6 +27,29 @@ FACTS = [
     "Discord moderation actions require the bot role to be above the target member.",
     "PostgreSQL supports transactional DDL, which makes migrations safer.",
 ]
+IMAGE_SIZE_LIMIT = 8 * 1024 * 1024
+HTTP_STATUS_RE = re.compile(r"^[1-5][0-9]{2}$")
+
+
+def extension_from_content_type(content_type: str | None, fallback: str = ".jpg") -> str:
+    if not content_type:
+        return fallback
+    if "png" in content_type:
+        return ".png"
+    if "gif" in content_type:
+        return ".gif"
+    if "webp" in content_type:
+        return ".webp"
+    if "jpeg" in content_type or "jpg" in content_type:
+        return ".jpg"
+    return fallback
+
+
+def extension_from_url(url: str, fallback: str = ".jpg") -> str:
+    suffix = urlparse(url).path.rsplit(".", 1)
+    if len(suffix) == 2 and suffix[1].lower() in {"jpg", "jpeg", "png", "gif", "webp"}:
+        return "." + suffix[1].lower()
+    return fallback
 
 
 class Fun(commands.Cog):
@@ -34,12 +61,53 @@ class Fun(commands.Cog):
         await ctx.send(embed=code_embed("Joke", random.choice(JOKES)))
 
     @commands.hybrid_command(name="meme")
-    async def meme(self, ctx: commands.Context) -> None:
-        await ctx.send(embed=image_embed("Meme", "https://i.imgflip.com/1bij.jpg"))
+    async def meme(self, ctx: commands.Context, *, text: str | None = None) -> None:
+        await self.send_image_attachment_embed(
+            ctx,
+            "Meme",
+            "https://i.imgflip.com/1bij.jpg",
+            description=text,
+            filename_prefix="meme",
+        )
 
     @commands.hybrid_command(name="quote")
-    async def quote(self, ctx: commands.Context) -> None:
-        await ctx.send(embed=code_embed("Quote", random.choice(QUOTES)))
+    async def quote(self, ctx: commands.Context, message_id: str | None = None) -> None:
+        quoted = await self.resolve_quoted_message(ctx, message_id)
+        if quoted is None:
+            await ctx.send(embed=code_embed("Quote", random.choice(QUOTES)))
+            return
+
+        description = quoted.content or "[no text content]"
+        item = embed("Quoted Message", description)
+        item.set_author(name=str(quoted.author), icon_url=quoted.author.display_avatar.url)
+        item.add_field(name="Author ID", value=str(quoted.author.id), inline=True)
+        item.add_field(name="Message ID", value=str(quoted.id), inline=True)
+        item.add_field(name="Jump", value=f"[Open message]({quoted.jump_url})", inline=False)
+        item.timestamp = quoted.created_at
+
+        image_attachment = next(
+            (
+                attachment
+                for attachment in quoted.attachments
+                if attachment.content_type and attachment.content_type.startswith("image/")
+            ),
+            None,
+        )
+        if image_attachment:
+            file = await self.download_image_file(image_attachment.url, "quote")
+            if file:
+                item.set_image(url=f"attachment://{file.filename}")
+                await ctx.send(embed=item, file=file)
+                return
+            item.set_image(url=image_attachment.url)
+
+        if quoted.attachments:
+            item.add_field(
+                name="Attachments",
+                value="\n".join(f"[{attachment.filename}]({attachment.url})" for attachment in quoted.attachments[:5]),
+                inline=False,
+            )
+        await ctx.send(embed=item)
 
     @commands.hybrid_command(name="fact")
     async def fact(self, ctx: commands.Context) -> None:
@@ -90,11 +158,61 @@ class Fun(commands.Cog):
 
     @commands.hybrid_command(name="cat")
     async def cat(self, ctx: commands.Context) -> None:
-        await ctx.send(embed=image_embed("Cat", "https://cataas.com/cat"))
+        await self.send_image_attachment_embed(ctx, "Cat", "https://cataas.com/cat", filename_prefix="cat")
 
     @commands.hybrid_command(name="dog")
     async def dog(self, ctx: commands.Context) -> None:
-        await ctx.send(embed=image_embed("Dog", "https://placedog.net/640/480?random"))
+        try:
+            image_url = await self.fetch_random_dog_url()
+        except commands.CommandError:
+            image_url = "https://images.dog.ceo/breeds/retriever-golden/n02099601_3004.jpg"
+        await self.send_image_attachment_embed(ctx, "Dog", image_url, filename_prefix="dog")
+
+    @commands.hybrid_command(name="httpcat")
+    async def httpcat(self, ctx: commands.Context, status: int = 404) -> None:
+        if not HTTP_STATUS_RE.fullmatch(str(status)):
+            await ctx.send(embed=code_embed("HTTP Cat", "Use a valid HTTP status code, for example 404."))
+            return
+        await self.send_image_attachment_embed(
+            ctx,
+            f"HTTP Cat {status}",
+            f"https://http.cat/{status}.jpg",
+            filename_prefix=f"httpcat-{status}",
+        )
+
+    @commands.hybrid_command(name="httpdog")
+    async def httpdog(self, ctx: commands.Context, status: int = 404) -> None:
+        if not HTTP_STATUS_RE.fullmatch(str(status)):
+            await ctx.send(embed=code_embed("HTTP Dog", "Use a valid HTTP status code, for example 404."))
+            return
+        await self.send_image_attachment_embed(
+            ctx,
+            f"HTTP Dog {status}",
+            f"https://http.dog/{status}.jpg",
+            filename_prefix=f"httpdog-{status}",
+        )
+
+    @commands.hybrid_command(name="choose")
+    async def choose(self, ctx: commands.Context, *, options: str) -> None:
+        values = [item.strip() for item in options.split("|") if item.strip()]
+        if len(values) < 2:
+            await ctx.send(embed=code_embed("Choose", "Use: choose option 1 | option 2"))
+            return
+        await ctx.send(embed=code_embed("Choose", random.choice(values)))
+
+    @commands.hybrid_command(name="rate")
+    async def rate(self, ctx: commands.Context, *, thing: str) -> None:
+        await ctx.send(embed=code_embed("Rate", f"{thing}: {random.randint(0, 100)}/100"))
+
+    @commands.hybrid_command(name="avatar")
+    async def avatar(self, ctx: commands.Context, member: discord.Member | None = None) -> None:
+        target = member or ctx.author
+        await self.send_image_attachment_embed(
+            ctx,
+            f"{target.display_name}'s Avatar",
+            target.display_avatar.with_size(512).url,
+            filename_prefix="avatar",
+        )
 
     @commands.hybrid_command(name="poll")
     async def poll(self, ctx: commands.Context, question: str, option1: str, option2: str, option3: str | None = None, option4: str | None = None) -> None:
@@ -106,6 +224,66 @@ class Fun(commands.Cog):
     @commands.hybrid_command(name="quiz")
     async def quiz(self, ctx: commands.Context, question: str, answer: str) -> None:
         await ctx.send(embed=code_embed("Quiz", f"Quiz: {question}\nAnswer: {answer}"))
+
+    async def resolve_quoted_message(self, ctx: commands.Context, message_id: str | None) -> discord.Message | None:
+        if ctx.message.reference and ctx.message.reference.message_id:
+            try:
+                if isinstance(ctx.message.reference.resolved, discord.Message):
+                    return ctx.message.reference.resolved
+                return await ctx.channel.fetch_message(ctx.message.reference.message_id)
+            except discord.DiscordException:
+                return None
+        if message_id is None:
+            return None
+        try:
+            return await ctx.channel.fetch_message(int(message_id))
+        except (ValueError, discord.DiscordException):
+            return None
+
+    async def fetch_random_dog_url(self) -> str:
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://dog.ceo/api/breeds/image/random", timeout=10) as response:
+                response.raise_for_status()
+                payload = await response.json()
+        image_url = payload.get("message")
+        if not isinstance(image_url, str) or not image_url.startswith("http"):
+            raise commands.CommandError("Dog API returned an invalid image URL.")
+        return image_url
+
+    async def download_image_file(self, image_url: str, filename_prefix: str) -> discord.File | None:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(image_url, timeout=15) as response:
+                    response.raise_for_status()
+                    content_type = response.headers.get("Content-Type", "")
+                    extension_from_path = extension_from_url(str(response.url), "")
+                    if not content_type.startswith("image/") and not extension_from_path:
+                        return None
+                    data = await response.read()
+        except (aiohttp.ClientError, TimeoutError, ValueError):
+            return None
+        if not data or len(data) > IMAGE_SIZE_LIMIT:
+            return None
+        extension = extension_from_content_type(content_type, extension_from_url(image_url))
+        filename = f"{filename_prefix}{extension}"
+        return discord.File(io.BytesIO(data), filename=filename)
+
+    async def send_image_attachment_embed(
+        self,
+        ctx: commands.Context,
+        title: str,
+        image_url: str,
+        *,
+        description: str | None = None,
+        filename_prefix: str = "image",
+    ) -> None:
+        file = await self.download_image_file(image_url, filename_prefix)
+        if file is None:
+            await ctx.send(embed=image_embed(title, image_url, description))
+            return
+        item = embed(title, description)
+        item.set_image(url=f"attachment://{file.filename}")
+        await ctx.send(embed=item, file=file)
 
 
 async def setup(bot: PHPelefantBot) -> None:

@@ -48,7 +48,7 @@ class Utility(commands.Cog):
                 "Settings: settings setlogchannel setwarnlimit antispam antilink anticaps badwords whitelist forcesub\n"
                 "Welcome: setwelcome welcome setgoodbye goodbye\n"
                 "Activity: rank level xp leaderboard top activity profile\n"
-                "Fun: joke meme quote fact 8ball coinflip dice roll ship roast compliment hug slap cat dog poll quiz\n"
+                "Fun: joke meme quote fact 8ball coinflip dice roll ship roast compliment hug slap cat dog httpcat httpdog choose rate avatar poll quiz\n"
                 "Owner: owner broadcast broadcastchannel statsglobal leaveguild blacklistuser unblacklistuser blacklistguild unblacklistguild shell shellusers backupdb shutdown"
             )
         )

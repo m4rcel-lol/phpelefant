@@ -228,6 +228,22 @@ Shell execution behavior:
 
 Because this is a real shell, destructive commands can still affect files writable by `phpelefant-env`. Keep that OS user unprivileged, do not put it in `sudo`, and run the app from a read-only deployment directory where practical.
 
+### Alpine Package Installs
+
+On Alpine hosts, package installation requires a root-level `sudoers` rule. To allow the runtime user to install packages with `apk`:
+
+```bash
+sudo scripts/allow_apk_package_install.sh
+```
+
+Then from Telegram:
+
+```text
+/shell sudo -n /sbin/apk add sl
+```
+
+This intentionally uses `sudo -n`, so it fails instead of prompting for a password. Once this is enabled, every Telegram user allowed to use `/shell` can install Alpine packages as root through `apk`. Keep `/shellusers list` limited to trusted people.
+
 ## Force Subscribe
 
 - `/forcesub on`

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from phpelefant_discord.db.base import Base
+from phpelefant_discord.db import models  # noqa: F401
 
 
 def make_engine(database_url: str) -> AsyncEngine:
@@ -31,4 +32,3 @@ async def session_scope(factory: async_sessionmaker[AsyncSession]) -> AsyncItera
         except Exception:
             await session.rollback()
             raise
-

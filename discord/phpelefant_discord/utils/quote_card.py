@@ -7,23 +7,20 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-# High-Res Social Media Canvas Dimensions (1200x630 OpenGraph Standard)
+# Classic Retro Forum Dimensions
 WIDTH = 1200
 MIN_HEIGHT = 630
-OUTER_MARGIN = 64
-CARD_RADIUS = 32
-CONTENT_PAD_X = 80
-CONTENT_PAD_Y = 80
-AVATAR_SIZE = 84
 
-# Premium Dark Theme Palette (Linear/Vercel inspired)
-BG = (10, 10, 12)
-CARD_BG = (22, 23, 26, 230)
-CARD_BORDER = (46, 48, 54, 255)
-TEXT = (248, 249, 250)
-MUTED = (160, 165, 175)
-SUBTLE = (110, 115, 125)
-
+# Colors for "phpBB" feel
+BG = (226, 226, 226)  # Outer bg
+TABLE_BORDER = (169, 184, 194)
+HEADER_BG = (21, 101, 154)
+HEADER_TEXT = (255, 255, 255)
+POST_BG_LEFT = (239, 243, 248)
+POST_BG_RIGHT = (250, 251, 252)
+TEXT_MAIN = (0, 0, 0)
+LINK_COLOR = (16, 82, 137)
+META_TEXT = (50, 50, 50)
 
 @dataclass(slots=True)
 class QuoteCardData:
@@ -32,7 +29,6 @@ class QuoteCardData:
     message: str
     timestamp: datetime | None = None
     avatar_bytes: bytes | None = None
-
 
 def load_font(size: int, *, bold: bool = False, italic: bool = False, serif: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     paths = []
@@ -62,16 +58,13 @@ def load_font(size: int, *, bold: bool = False, italic: bool = False, serif: boo
             pass
     return ImageFont.load_default()
 
-
 def text_width(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont) -> int:
     bbox = draw.textbbox((0, 0), text, font=font)
     return bbox[2] - bbox[0]
 
-
 def line_height(font: ImageFont.FreeTypeFont | ImageFont.ImageFont, extra: int) -> int:
     bbox = font.getbbox("Ag")
     return bbox[3] - bbox[1] + extra
-
 
 def clean_message(value: str) -> str:
     text = value.strip() or "[no text content]"
@@ -79,7 +72,6 @@ def clean_message(value: str) -> str:
     if len(text) > 700:
         text = text[:697].rstrip() + "..."
     return text
-
 
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont | ImageFont.ImageFont, max_width: int) -> list[str]:
     lines: list[str] = []
@@ -98,26 +90,7 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont
             lines.append(current)
     return lines[:12]
 
-
-def add_grain(image: Image.Image, amount: float = 0.05) -> Image.Image:
-    noise = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    pixels = noise.load()
-    width, height = image.size
-    for y in range(height):
-        for x in range(width):
-            if random.random() < amount:
-                pixels[x, y] = (255, 255, 255, random.randint(3, 10))
-    return Image.alpha_composite(image.convert("RGBA"), noise)
-
-
-def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
-    mask = Image.new("L", size, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)
-    return mask
-
-
-def circular_avatar(avatar_bytes: bytes | None, size: int) -> tuple[Image.Image, Image.Image]:
+def square_avatar(avatar_bytes: bytes | None, size: int) -> Image.Image:
     if avatar_bytes:
         try:
             avatar = Image.open(BytesIO(avatar_bytes)).convert("RGB")
@@ -127,162 +100,129 @@ def circular_avatar(avatar_bytes: bytes | None, size: int) -> tuple[Image.Image,
         avatar = None
 
     if not avatar:
-        avatar = Image.new("RGB", (size, size), (30, 32, 38))
+        avatar = Image.new("RGB", (size, size), (220, 220, 220))
         draw = ImageDraw.Draw(avatar)
         font = load_font(int(size * 0.45), bold=True)
-        draw.text((size / 2, size / 2 - 2), "?", font=font, fill=TEXT, anchor="mm")
+        draw.text((size / 2, size / 2 - 2), "?", font=font, fill=(150, 150, 150), anchor="mm")
 
     avatar = ImageOps.fit(avatar, (size, size), method=Image.Resampling.LANCZOS)
-    mask = Image.new("L", (size, size), 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse((1, 1, size - 2, size - 2), fill=255)
-
-    return avatar.convert("RGBA"), mask
-
+    draw = ImageDraw.Draw(avatar)
+    draw.rectangle((0, 0, size - 1, size - 1), outline=(0, 0, 0), width=1)
+    return avatar
 
 def fit_font_for_message(
     draw: ImageDraw.ImageDraw, text: str, max_width: int
 ) -> tuple[ImageFont.FreeTypeFont | ImageFont.ImageFont, list[str], int, int]:
-    for size in (64, 56, 48, 42, 36):
-        font = load_font(size, bold=False, serif=True)
+    for size in (84, 76, 68, 60, 52):
+        font = load_font(size, bold=False, serif=False)
         lines = wrap_text(draw, text, font, max_width)
-        lh_extra = int(size * 0.4)
+        lh_extra = int(size * 0.2)
         height = len(lines) * line_height(font, lh_extra)
-        if len(lines) <= 6 or size == 36:
+        if len(lines) <= 6 or size == 52:
             return font, lines, height, lh_extra
-    font = load_font(32, bold=False, serif=True)
+    font = load_font(44, bold=False, serif=False)
     lines = wrap_text(draw, text, font, max_width)
-    lh_extra = int(32 * 0.4)
+    lh_extra = int(44 * 0.2)
     return font, lines, len(lines) * line_height(font, lh_extra), lh_extra
 
-
-def generate_mesh_gradient(size: tuple[int, int]) -> Image.Image:
-    width, height = size
-    image = Image.new("RGBA", size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    
-    # Deep, sophisticated ambient glow
-    draw.ellipse((-200, -300, 700, 600), fill=(20, 80, 200, 45))
-    draw.ellipse((width - 800, height - 600, width + 200, height + 400), fill=(120, 40, 200, 35))
-    draw.ellipse((width // 2 - 400, height - 200, width // 2 + 600, height + 500), fill=(40, 160, 180, 25))
-    
-    return image.filter(ImageFilter.GaussianBlur(160))
-
-
 def render_quote_card(data: QuoteCardData) -> bytes:
+    OUTER_PAD = 40
+    COL_LEFT_WIDTH = 340
+    CONTENT_PAD = 40
+    HEADER_H = 46
+    POSTS_COUNT = f"Posts: {random.randint(100, 9999)}"
+    JOIN_DATE = f"Joined: {random.randint(2001, 2010)}-04-12"
+
     scratch = Image.new("RGB", (WIDTH, MIN_HEIGHT), BG)
     scratch_draw = ImageDraw.Draw(scratch)
 
-    text_max_width = WIDTH - OUTER_MARGIN * 2 - CONTENT_PAD_X * 2
+    right_col_width = WIDTH - OUTER_PAD * 2 - COL_LEFT_WIDTH
+    text_max_width = right_col_width - CONTENT_PAD * 2
 
-    # Layout sizing
-    quote_font, lines, quote_height, lh_extra = fit_font_for_message(scratch_draw, data.message, text_max_width)
-    name_font = load_font(28, bold=True)
-    meta_font = load_font(22)
-    meta_time_font = load_font(22)
-    quote_mark_font = load_font(120, bold=True, serif=True)
-
-    header_gap = 60
-    author_height = AVATAR_SIZE
-    content_height = quote_height + header_gap + author_height
+    message_text = f'"{data.message}"'
+    quote_font, lines, quote_height, lh_extra = fit_font_for_message(scratch_draw, message_text, text_max_width)
     
-    card_height = max(MIN_HEIGHT - OUTER_MARGIN * 2, CONTENT_PAD_Y * 2 + content_height)
-    height = card_height + OUTER_MARGIN * 2
+    name_font = load_font(38, bold=True)
+    meta_font = load_font(28)
+    header_font = load_font(24, bold=False)
 
-    # Canvas Setup
+    avatar_size = 220
+    
+    col_left_min_h = CONTENT_PAD + avatar_size + 160
+    right_content_h = quote_height + CONTENT_PAD * 2
+
+    table_content_h = max(col_left_min_h, right_content_h)
+    
+    card_h = HEADER_H + table_content_h
+    height = max(MIN_HEIGHT, card_h + OUTER_PAD * 2)
+
     base = Image.new("RGB", (WIDTH, height), BG)
-    mesh = generate_mesh_gradient((WIDTH, height))
-    base_rgba = Image.alpha_composite(base.convert("RGBA"), mesh)
-    base_rgba = add_grain(base_rgba, 0.04)
+    draw = ImageDraw.Draw(base)
 
-    card_rect = (OUTER_MARGIN, OUTER_MARGIN, WIDTH - OUTER_MARGIN, height - OUTER_MARGIN)
-    card_width = card_rect[2] - card_rect[0]
-    card_height = card_rect[3] - card_rect[1]
+    card_x0 = OUTER_PAD
+    card_y0 = OUTER_PAD
+    card_x1 = WIDTH - OUTER_PAD
+    card_y1 = card_y0 + card_h
 
-    # Drop Shadow
-    shadow_offset = 32
-    shadow = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
-    shadow_draw = ImageDraw.Draw(shadow)
-    shadow_draw.rounded_rectangle(
-        (card_rect[0] + 20, card_rect[1] + shadow_offset, card_rect[2] - 20, card_rect[3] + shadow_offset),
-        radius=CARD_RADIUS,
-        fill=(0, 0, 0, 140),
-    )
-    base_rgba = Image.alpha_composite(base_rgba, shadow.filter(ImageFilter.GaussianBlur(40)))
-
-    # Main Card Body
-    card_bg = Image.new("RGBA", (card_width, card_height), CARD_BG)
-    mask = rounded_mask((card_width, card_height), CARD_RADIUS)
-    base_rgba.paste(card_bg, (card_rect[0], card_rect[1]), mask)
-
-    draw = ImageDraw.Draw(base_rgba)
+    # Drop shadow
+    shadow_offset = 6
+    draw.rectangle((card_x0 + shadow_offset, card_y0 + shadow_offset, card_x1 + shadow_offset, card_y1 + shadow_offset), fill=(150, 150, 150))
+    # Black thin border
+    draw.rectangle((card_x0 - 1, card_y0 - 1, card_x1 + 1, card_y1 + 1), fill=(0, 0, 0))
     
-    # Outer Border with top-edge highlight
-    draw.rounded_rectangle(card_rect, radius=CARD_RADIUS, outline=CARD_BORDER, width=2)
+    # Outer table border
+    draw.rectangle((card_x0, card_y0, card_x1, card_y1), fill=TABLE_BORDER)
     
-    # Inner glowing edge (top only)
-    top_edge = Image.new("RGBA", (card_width, card_height), (0, 0, 0, 0))
-    top_edge_draw = ImageDraw.Draw(top_edge)
-    top_edge_draw.rounded_rectangle((0, 0, card_width - 1, card_height - 1), radius=CARD_RADIUS, outline=(255, 255, 255, 20), width=1)
-    # Mask out everything except the very top curve
-    crop_mask = Image.new("L", (card_width, card_height), 0)
-    crop_draw = ImageDraw.Draw(crop_mask)
-    crop_draw.rectangle((0, 0, card_width, 60), fill=255)
+    table_pad = 2
+    inner_x0 = card_x0 + table_pad
+    inner_y0 = card_y0 + table_pad
+    inner_x1 = card_x1 - table_pad
+    inner_y1 = card_y1 - table_pad
+
+    # Header row
+    draw.rectangle((inner_x0, inner_y0, inner_x1, inner_y0 + HEADER_H), fill=HEADER_BG)
+    header_text_y = inner_y0 + (HEADER_H - 24) // 2
     
-    final_edge_mask = Image.new("L", (card_width, card_height), 0)
-    final_edge_mask.paste(mask, (0, 0), crop_mask)
-    base_rgba.paste(top_edge, (card_rect[0], card_rect[1]), final_edge_mask)
+    ts_str = "Posted: Thu Jan 01, 1970 12:00 am"
+    if data.timestamp:
+        ts_str = data.timestamp.strftime("Posted: %a %b %d, %Y %I:%M %p").lower()
+    
+    draw.text((inner_x0 + 15, header_text_y), "■ Post subject: Re: Thoughts?", font=header_font, fill=HEADER_TEXT)
+    
+    time_w = text_width(draw, ts_str, header_font)
+    draw.text((inner_x1 - 15 - time_w, header_text_y), ts_str, font=header_font, fill=HEADER_TEXT)
 
-    # Ambient Quote Mark Watermark
-    overlay = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-    # Position top left of card slightly offset
-    overlay_draw.text((card_rect[0] + CONTENT_PAD_X - 10, card_rect[1] + CONTENT_PAD_Y - 40), "“", font=quote_mark_font, fill=(255, 255, 255, 12))
-    base_rgba.paste(overlay, (0, 0), overlay)
+    # Content Row bg
+    content_y0 = inner_y0 + HEADER_H + table_pad
+    
+    col_split_x = inner_x0 + COL_LEFT_WIDTH
+    draw.rectangle((inner_x0, content_y0, col_split_x, inner_y1), fill=POST_BG_LEFT) # Left
+    draw.rectangle((col_split_x + table_pad, content_y0, inner_x1, inner_y1), fill=POST_BG_RIGHT) # Right
 
-    content_top = card_rect[1] + (card_height - content_height) // 2
+    author_y_curr = content_y0 + CONTENT_PAD
+    
+    draw.text((inner_x0 + 25, author_y_curr), data.author_name[:30], font=name_font, fill=LINK_COLOR)
+    author_y_curr += 50
+    draw.text((inner_x0 + 25, author_y_curr), f"@{data.author_handle[:30].lstrip('@')}", font=meta_font, fill=TEXT_MAIN)
+    author_y_curr += 45
+    
+    avatar_img = square_avatar(data.avatar_bytes, avatar_size)
+    base.paste(avatar_img, (inner_x0 + 25, author_y_curr))
+    author_y_curr += avatar_size + 25
+    
+    draw.text((inner_x0 + 25, author_y_curr), JOIN_DATE, font=meta_font, fill=META_TEXT)
+    author_y_curr += 35
+    draw.text((inner_x0 + 25, author_y_curr), POSTS_COUNT, font=meta_font, fill=META_TEXT)
 
-    # Print Text
-    y = content_top
-    text_x = card_rect[0] + CONTENT_PAD_X
+    text_y_curr = content_y0 + (table_content_h - quote_height) // 2
+
+    # Draw quotes
+    text_x = col_split_x + table_pad + CONTENT_PAD
     q_line_height = line_height(quote_font, lh_extra)
-    
     for line in lines:
-        draw.text((text_x, y), line, font=quote_font, fill=TEXT)
-        y += q_line_height
-
-    # Author Block
-    author_y = content_top + quote_height + header_gap
-    
-    avatar_img, avatar_mask = circular_avatar(data.avatar_bytes, AVATAR_SIZE)
-    base_rgba.paste(avatar_img, (text_x, author_y), avatar_mask)
-    draw.ellipse((text_x, author_y, text_x + AVATAR_SIZE - 1, author_y + AVATAR_SIZE - 1), outline=(255, 255, 255, 20), width=1)
-
-    author_text_x = text_x + AVATAR_SIZE + 24
-    
-    name_bbox = draw.textbbox((0, 0), data.author_name, font=name_font)
-    handle_bbox = draw.textbbox((0, 0), data.author_handle, font=meta_font)
-    name_h = name_bbox[3] - name_bbox[1]
-    handle_h = handle_bbox[3] - handle_bbox[1]
-    
-    author_text_y = author_y + (AVATAR_SIZE - (name_h + 8 + handle_h)) // 2
-    
-    draw.text((author_text_x, author_text_y), data.author_name[:80], font=name_font, fill=TEXT)
-    draw.text((author_text_x, author_text_y + name_h + 8), f"@{data.author_handle[:120].lstrip('@')}", font=meta_font, fill=MUTED)
-
-    # Timestamp right-aligned
-    if data.timestamp is not None:
-        ts_str = data.timestamp.strftime("%b %d, %Y")
-        time_w = text_width(draw, ts_str, font=meta_time_font)
-        time_x = card_rect[2] - CONTENT_PAD_X - time_w
-        
-        # Center with avatar
-        time_bbox = meta_time_font.getbbox("Ag")
-        time_h = time_bbox[3] - time_bbox[1]
-        time_y = author_y + (AVATAR_SIZE - time_h) // 2
-        
-        draw.text((time_x, time_y), ts_str, font=meta_time_font, fill=SUBTLE)
+        draw.text((text_x, text_y_curr), line, font=quote_font, fill=TEXT_MAIN)
+        text_y_curr += q_line_height
 
     output = BytesIO()
-    base_rgba.convert("RGB").save(output, format="PNG", optimize=True)
+    base.save(output, format="PNG", optimize=True)
     return output.getvalue()

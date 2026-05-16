@@ -188,8 +188,8 @@ def render_quote_card(data: QuoteCardData) -> bytes:
 
     avatar_size = 260
     
-    col_left_min_h = CONTENT_PAD + avatar_size + 220
-    right_content_h = quote_height + CONTENT_PAD * 2
+    col_left_min_h = CONTENT_PAD + avatar_size + 185
+    right_content_h = quote_height + CONTENT_PAD * 2 + 40
 
     table_content_h = max(col_left_min_h, right_content_h)
     
@@ -242,9 +242,7 @@ def render_quote_card(data: QuoteCardData) -> bytes:
     author_y_curr = content_y0 + CONTENT_PAD
     
     draw.text((inner_x0 + 25, author_y_curr), data.author_name[:30], font=name_font, fill=LINK_COLOR)
-    author_y_curr += 55
-    draw.text((inner_x0 + 25, author_y_curr), f"@{data.author_handle[:30].lstrip('@')}", font=meta_font, fill=TEXT_MAIN)
-    author_y_curr += 50
+    author_y_curr += 85
     
     avatar_img = square_avatar(data.avatar_bytes, avatar_size)
     base.paste(avatar_img, (inner_x0 + 25, author_y_curr))
@@ -262,6 +260,11 @@ def render_quote_card(data: QuoteCardData) -> bytes:
     for line in lines:
         draw.text((text_x, text_y_curr), line, font=quote_font, fill=TEXT_MAIN)
         text_y_curr += q_line_height
+
+    msg_id_text = f"Message ID: {random.randint(10000000, 99999999)}"
+    msg_id_font = load_font(24)
+    msg_id_w = text_width(draw, msg_id_text, msg_id_font)
+    draw.text((inner_x1 - 25 - msg_id_w, inner_y1 - 35), msg_id_text, font=msg_id_font, fill=META_TEXT)
 
     output = BytesIO()
     base.save(output, format="PNG", optimize=True)

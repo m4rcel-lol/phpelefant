@@ -9,7 +9,7 @@ from phpelefant_discord.bot import PHPelefantBot
 from phpelefant_discord.db.session import session_scope
 from phpelefant_discord.services.moderation import add_warning, log_action, reset_warnings, warning_count
 from phpelefant_discord.services.settings import get_or_create_guild_settings
-from phpelefant_discord.utils.formatting import code_block, table_embed
+from phpelefant_discord.utils.formatting import code_embed, table_embed
 from phpelefant_discord.utils.time import parse_duration
 
 
@@ -40,7 +40,7 @@ class Moderation(commands.Cog):
     async def ban(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided") -> None:
         ok, message = can_moderate(ctx, member)
         if not ok:
-            await ctx.send(code_block(message))
+            await ctx.send(embed=code_embed("Moderation", message))
             return
         await member.ban(reason=reason)
         async with session_scope(self.bot.session_factory) as session:
@@ -62,7 +62,7 @@ class Moderation(commands.Cog):
     async def kick(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided") -> None:
         ok, message = can_moderate(ctx, member)
         if not ok:
-            await ctx.send(code_block(message))
+            await ctx.send(embed=code_embed("Moderation", message))
             return
         await member.kick(reason=reason)
         async with session_scope(self.bot.session_factory) as session:
@@ -74,12 +74,12 @@ class Moderation(commands.Cog):
     async def mute(self, ctx: commands.Context, member: discord.Member, duration: str = "1h", *, reason: str = "No reason provided") -> None:
         ok, message = can_moderate(ctx, member)
         if not ok:
-            await ctx.send(code_block(message))
+            await ctx.send(embed=code_embed("Moderation", message))
             return
         try:
             delta = parse_duration(duration)
         except ValueError as exc:
-            await ctx.send(code_block(str(exc)))
+            await ctx.send(embed=code_embed("Moderation", str(exc)))
             return
         until = datetime.now(tz=UTC) + delta
         await member.timeout(until, reason=reason)
@@ -125,12 +125,12 @@ class Moderation(commands.Cog):
     @commands.has_guild_permissions(manage_messages=True)
     async def purge(self, ctx: commands.Context, limit: int) -> None:
         if not 1 <= limit <= 100:
-            await ctx.send(code_block("Limit must be 1-100."))
+            await ctx.send(embed=code_embed("Purge", "Limit must be 1-100."))
             return
         deleted = await ctx.channel.purge(limit=limit + 1)
         async with session_scope(self.bot.session_factory) as session:
             await log_action(session, ctx.guild.id, "purge", None, ctx.author.id, str(len(deleted)))
-        await ctx.send(code_block(f"Purged {len(deleted) - 1} messages."), delete_after=8)
+        await ctx.send(embed=code_embed("Purge", f"Purged {len(deleted) - 1} messages."), delete_after=8)
 
     @commands.hybrid_command(name="delete")
     @commands.guild_only()
@@ -147,7 +147,7 @@ class Moderation(commands.Cog):
         overwrite = ctx.channel.overwrites_for(ctx.guild.default_role)
         overwrite.send_messages = False
         await ctx.channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
-        await ctx.send(code_block("Channel locked."))
+        await ctx.send(embed=code_embed("Lock", "Channel locked."))
 
     @commands.hybrid_command(name="unlock")
     @commands.guild_only()
@@ -156,17 +156,17 @@ class Moderation(commands.Cog):
         overwrite = ctx.channel.overwrites_for(ctx.guild.default_role)
         overwrite.send_messages = None
         await ctx.channel.set_permissions(ctx.guild.default_role, overwrite=overwrite)
-        await ctx.send(code_block("Channel unlocked."))
+        await ctx.send(embed=code_embed("Unlock", "Channel unlocked."))
 
     @commands.hybrid_command(name="slowmode")
     @commands.guild_only()
     @commands.has_guild_permissions(manage_channels=True)
     async def slowmode(self, ctx: commands.Context, seconds: int) -> None:
         if not 0 <= seconds <= 21600:
-            await ctx.send(code_block("Slowmode must be between 0 and 21600 seconds."))
+            await ctx.send(embed=code_embed("Slowmode", "Slowmode must be between 0 and 21600 seconds."))
             return
         await ctx.channel.edit(slowmode_delay=seconds)
-        await ctx.send(code_block(f"Slowmode set to {seconds}s."))
+        await ctx.send(embed=code_embed("Slowmode", f"Slowmode set to {seconds}s."))
 
     @commands.hybrid_command(name="rules")
     @commands.guild_only()
@@ -183,7 +183,7 @@ class Moderation(commands.Cog):
             settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
             settings.rules_text = text[:4000]
             await log_action(session, ctx.guild.id, "setrules", None, ctx.author.id, None)
-        await ctx.send(code_block("Rules updated."))
+        await ctx.send(embed=code_embed("Rules", "Rules updated."))
 
     @commands.hybrid_command(name="pin")
     @commands.guild_only()
@@ -191,7 +191,7 @@ class Moderation(commands.Cog):
     async def pin(self, ctx: commands.Context, message_id: int) -> None:
         message = await ctx.channel.fetch_message(message_id)
         await message.pin(reason=f"Pinned by {ctx.author}")
-        await ctx.send(code_block("Message pinned."))
+        await ctx.send(embed=code_embed("Pin", "Message pinned."))
 
     @commands.hybrid_command(name="unpin")
     @commands.guild_only()
@@ -199,7 +199,7 @@ class Moderation(commands.Cog):
     async def unpin(self, ctx: commands.Context, message_id: int) -> None:
         message = await ctx.channel.fetch_message(message_id)
         await message.unpin(reason=f"Unpinned by {ctx.author}")
-        await ctx.send(code_block("Message unpinned."))
+        await ctx.send(embed=code_embed("Unpin", "Message unpinned."))
 
     @commands.hybrid_command(name="report")
     @commands.guild_only()
@@ -209,15 +209,14 @@ class Moderation(commands.Cog):
         channel = ctx.guild.get_channel(settings.log_channel_id) if settings.log_channel_id else None
         if isinstance(channel, discord.TextChannel):
             await channel.send(embed=table_embed("Report", [("reporter", ctx.author.id), ("message", message_id), ("reason", reason)]))
-        await ctx.send(code_block("Report submitted." if channel else "Report received; configure setlogchannel for admin logs."))
+        await ctx.send(embed=code_embed("Report", "Report submitted." if channel else "Report received; configure setlogchannel for admin logs."))
 
     @commands.hybrid_command(name="adminlist")
     @commands.guild_only()
     async def adminlist(self, ctx: commands.Context) -> None:
         admins = [member for member in ctx.guild.members if member.guild_permissions.administrator]
-        await ctx.send(code_block("\n".join(f"{m} ({m.id})" for m in admins) or "No cached admins."))
+        await ctx.send(embed=code_embed("Admins", "\n".join(f"{m} ({m.id})" for m in admins) or "No cached admins."))
 
 
 async def setup(bot: PHPelefantBot) -> None:
     await bot.add_cog(Moderation(bot))
-

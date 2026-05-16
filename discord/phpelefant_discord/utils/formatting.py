@@ -20,8 +20,11 @@ def embed(title: str, description: str | None = None, *, color: int = 0x4F8CC9) 
     return discord.Embed(title=title, description=description, color=color)
 
 
+def code_embed(title: str, value: str, language: str = "") -> discord.Embed:
+    return embed(title, code_block(value, language))
+
+
 def table_embed(title: str, rows: list[tuple[str, object]]) -> discord.Embed:
     width = max((len(label) for label, _ in rows), default=0)
     body = "\n".join(f"{label.ljust(width)} : {value}" for label, value in rows) or "No data."
     return embed(title, code_block(body))
-

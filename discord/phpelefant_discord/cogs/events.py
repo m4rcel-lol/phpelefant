@@ -14,7 +14,7 @@ from phpelefant_discord.services.antispam import AutoAction, SpamMemory, analyze
 from phpelefant_discord.services.moderation import add_warning, log_action
 from phpelefant_discord.services.settings import get_or_create_guild_settings, upsert_guild, upsert_user
 from phpelefant_discord.services.stats import increment_stat
-from phpelefant_discord.utils.formatting import code_block
+from phpelefant_discord.utils.formatting import code_block, code_embed
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class Events(commands.Cog):
     async def bot_check_once(self, ctx: commands.Context) -> bool:
         async with session_scope(self.bot.session_factory) as session:
             if await session.get(BlacklistedUser, ctx.author.id):
-                await ctx.send(code_block("You are blocked from using PHPelefant."))
+                await ctx.send(embed=code_embed("Blocked", "You are blocked from using PHPelefant."))
                 return False
             if ctx.guild and await session.get(BlacklistedGuild, ctx.guild.id):
                 return False
@@ -36,10 +36,10 @@ class Events(commands.Cog):
                 if settings.force_subscribe_enabled and ctx.author.id != self.bot.settings.bot_owner_id:
                     official_guild = self.bot.get_guild(settings.official_channel_id)
                     if official_guild is None:
-                        await ctx.send(code_block("Official server is not available to the bot."))
+                        await ctx.send(embed=code_embed("Force Subscribe", "Official server is not available to the bot."))
                         return False
                     if official_guild.get_member(ctx.author.id) is None:
-                        await ctx.send(code_block("Join the official PHPelefant server before using this command."))
+                        await ctx.send(embed=code_embed("Force Subscribe", "Join the official PHPelefant server before using this command."))
                         return False
         return True
 
@@ -81,7 +81,6 @@ class Events(commands.Cog):
         if message.author.bot:
             return
         if message.guild is None:
-            await self.bot.process_commands(message)
             return
         async with session_scope(self.bot.session_factory) as session:
             if await session.get(BlacklistedUser, message.author.id) or await session.get(BlacklistedGuild, message.guild.id):
@@ -93,7 +92,6 @@ class Events(commands.Cog):
             if settings.activity_enabled and not message.content.startswith(self.bot.settings.command_prefix):
                 await record_message(session, message.guild.id, message.author.id, self.bot.settings.xp_cooldown_seconds)
             await self.apply_antispam(message, session, settings)
-        await self.bot.process_commands(message)
 
     async def apply_antispam(self, message: discord.Message, session, settings) -> None:
         if not message.content or message.author.guild_permissions.manage_messages or message.author.id == self.bot.settings.bot_owner_id:
@@ -121,13 +119,13 @@ class Events(commands.Cog):
             return
         if decision.action is AutoAction.WARN:
             count, auto = await add_warning(session, settings, message.author, self.bot.settings.bot_owner_id, f"Auto moderation: {decision.reason}")
-            await message.channel.send(code_block(f"Auto-warning {message.author.id}: {count}/{settings.warning_limit}. {auto or ''}"))
+            await message.channel.send(embed=code_embed("Auto Moderation", f"Auto-warning {message.author.id}: {count}/{settings.warning_limit}. {auto or ''}"))
         elif decision.action is AutoAction.TIMEOUT:
             await message.author.timeout(datetime.now(tz=UTC) + timedelta(hours=1), reason=f"Auto moderation: {decision.reason}")
-            await message.channel.send(code_block(f"Timed out {message.author.id}: {decision.reason}"))
+            await message.channel.send(embed=code_embed("Auto Moderation", f"Timed out {message.author.id}: {decision.reason}"))
         elif decision.action is AutoAction.BAN:
             await message.author.ban(reason=f"Auto moderation: {decision.reason}")
-            await message.channel.send(code_block(f"Banned {message.author.id}: {decision.reason}"))
+            await message.channel.send(embed=code_embed("Auto Moderation", f"Banned {message.author.id}: {decision.reason}"))
 
 
 def render_template(template: str, member: discord.Member, rules: str) -> str:

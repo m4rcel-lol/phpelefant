@@ -4,13 +4,12 @@ import time
 
 import discord
 from discord.ext import commands
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from phpelefant_discord.bot import PHPelefantBot
 from phpelefant_discord.db.session import session_scope
 from phpelefant_discord.services.settings import get_or_create_guild_settings
 from phpelefant_discord.services.stats import global_counts
-from phpelefant_discord.utils.formatting import code_block, table_embed
+from phpelefant_discord.utils.formatting import code_embed, table_embed
 
 STARTED_AT = time.monotonic()
 
@@ -43,7 +42,8 @@ class Utility(commands.Cog):
     @commands.hybrid_command(name="help")
     async def help_command(self, ctx: commands.Context) -> None:
         await ctx.send(
-            code_block(
+            embed=code_embed(
+                "Help",
                 "Moderation: ban unban kick mute unmute warn warnings resetwarnings purge delete lock unlock slowmode rules setrules pin unpin report adminlist\n"
                 "Settings: settings setlogchannel setwarnlimit antispam antilink anticaps badwords whitelist forcesub\n"
                 "Welcome: setwelcome welcome setgoodbye goodbye\n"
@@ -56,7 +56,7 @@ class Utility(commands.Cog):
     @commands.hybrid_command(name="id")
     async def id_command(self, ctx: commands.Context, member: discord.Member | None = None) -> None:
         target = member or ctx.author
-        await ctx.send(code_block(f"user_id={target.id}\nguild_id={ctx.guild.id if ctx.guild else 'dm'}\nchannel_id={ctx.channel.id}"))
+        await ctx.send(embed=code_embed("IDs", f"user_id={target.id}\nguild_id={ctx.guild.id if ctx.guild else 'dm'}\nchannel_id={ctx.channel.id}"))
 
     @commands.hybrid_command(name="userinfo")
     async def userinfo(self, ctx: commands.Context, member: discord.Member | None = None) -> None:
@@ -82,11 +82,11 @@ class Utility(commands.Cog):
 
     @commands.hybrid_command(name="ping")
     async def ping(self, ctx: commands.Context) -> None:
-        await ctx.send(code_block(f"pong {round(self.bot.latency * 1000)} ms"))
+        await ctx.send(embed=code_embed("Ping", f"pong {round(self.bot.latency * 1000)} ms"))
 
     @commands.hybrid_command(name="uptime")
     async def uptime(self, ctx: commands.Context) -> None:
-        await ctx.send(code_block(uptime_text()))
+        await ctx.send(embed=code_embed("Uptime", uptime_text()))
 
     @commands.hybrid_command(name="stats")
     async def stats(self, ctx: commands.Context) -> None:
@@ -135,14 +135,14 @@ class Utility(commands.Cog):
     async def language(self, ctx: commands.Context) -> None:
         async with session_scope(self.bot.session_factory) as session:
             row = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
-        await ctx.send(code_block(row.language))
+        await ctx.send(embed=code_embed("Language", row.language))
 
     @commands.hybrid_command(name="timezone")
     @commands.guild_only()
     async def timezone(self, ctx: commands.Context) -> None:
         async with session_scope(self.bot.session_factory) as session:
             row = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
-        await ctx.send(code_block(row.timezone))
+        await ctx.send(embed=code_embed("Timezone", row.timezone))
 
 
 async def setup(bot: PHPelefantBot) -> None:

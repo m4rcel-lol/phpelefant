@@ -181,10 +181,10 @@ Only Telegram user ID `6104236913` can use these owner administration commands:
 - `/unblacklistuser <user_id>`
 - `/blacklistchat <chat_id> <reason>`
 - `/unblacklistchat <chat_id>`
+- `/shell <command>`
 - `/shellusers add <user_id> [note]`
 - `/shellusers remove <user_id>`
 - `/shellusers list`
-- `/rootshell <read-only command>`
 - `/eval` disabled unless `ENABLE_EVAL=true`
 - `/restart CONFIRM`
 - `/shutdown CONFIRM`
@@ -193,10 +193,9 @@ Only Telegram user ID `6104236913` can use these owner administration commands:
 
 Ownership is checked only by numeric Telegram ID, never by username.
 
-The owner and users added with `/shellusers add` can use `/shell <read-only command>`.
-Only the owner can use `/rootshell <read-only command>`.
+The owner and users added with `/shellusers add` can use `/shell <command>`.
 
-## Restricted Shell Access
+## Real Shell Access
 
 The owner always has shell access. The owner can add trusted Telegram user IDs to the shell allowlist:
 
@@ -206,35 +205,28 @@ The owner always has shell access. The owner can add trusted Telegram user IDs t
 /shellusers list
 ```
 
-Allowed users can run:
+Allowed users get a real OS shell running as the dedicated unprivileged runtime user:
 
 ```text
 /shell ls -la
 /shell df -h
 /shell tail -100 app.log
 /shell fastfetch
+/shell fastfetch | head -40
 ```
 
-The shell runner is intentionally restricted:
+Shell execution behavior:
 
-- Uses `asyncio.create_subprocess_exec`, not `shell=True`.
-- Allows only read-oriented commands such as `ls`, `cat`, `tail`, `head`, `rg`, `grep`, `find`, `ps`, `df`, `du`, `uptime`, and `whoami`.
-- Includes common system-info commands such as `fastfetch`, `neofetch`, `free`, `vm_stat`, and `sw_vers` by default.
-- Can be extended with `SHELL_EXTRA_ALLOWED_COMMANDS`.
-- Rejects shell operators, pipes, redirects, command substitutions, explicit executable paths, and write-capable flags such as `find -delete` or `sed -i`.
-- Runs as the same OS user as the bot process.
+- Runs `/bin/sh -lc <command>` by default. Set `SHELL_PATH` to use another shell.
+- Docker creates and runs the bot as `phpelefant-env`, a non-root user.
+- Host deployments should create the user with `sudo scripts/create_runtime_user.sh` and run the bot service as `phpelefant-env`.
+- If the process starts as root, shell subprocesses are demoted to `phpelefant-env`.
+- If the process is not root and not running as `phpelefant-env`, shell execution is refused when `SHELL_ENFORCE_RUNTIME_USER=true`.
 - Uses a sanitized environment and redacts configured bot token and database URL from command output.
 - Enforces `SHELL_TIMEOUT_SECONDS` and `SHELL_OUTPUT_LIMIT`.
-- Refuses non-owner `/shell` execution if the bot process itself is running as root.
+- Does not collect sudo/root passwords and does not provide a root shell.
 
-Root shell behavior:
-
-- `/rootshell` is owner-only.
-- It runs `sudo -n -- <command>`, so it never prompts for or accepts a password in Telegram.
-- If root commands are needed, configure passwordless sudo for the bot OS user for only the specific allowed commands.
-- Root command names are limited by `ROOT_SHELL_ALLOWED_COMMANDS`.
-
-For stronger isolation, deploy the bot under a dedicated unprivileged OS user or inside a locked-down container with a read-only filesystem where practical. Application-level filtering reduces risk but cannot replace OS-level permissions.
+Because this is a real shell, destructive commands can still affect files writable by `phpelefant-env`. Keep that OS user unprivileged, do not put it in `sudo`, and run the app from a read-only deployment directory where practical.
 
 ## Force Subscribe
 
@@ -284,7 +276,7 @@ python -m compileall phpelefant tests
 - Owner commands are hard-gated to Telegram user ID `6104236913`.
 - Shell allowlist changes are owner-only; the owner cannot be removed from shell access.
 - Shell output is returned inside Telegram code blocks.
-- Root shell access is owner-only and does not collect sudo passwords through Telegram.
+- Shell subprocesses run as `phpelefant-env`, not root.
 - `/eval` is disabled by default and should stay disabled outside an isolated developer environment.
 - User input is validated before moderation actions.
 - Telegram API failures are caught and converted into safe user-facing messages.

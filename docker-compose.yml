@@ -18,10 +18,13 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://phpelefant:phpelefant@postgres:5432/phpelefant
+      SHELL_RUNTIME_USER: phpelefant-env
+      SHELL_ENFORCE_RUNTIME_USER: "true"
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   postgres_data:
-

@@ -16,7 +16,7 @@ from phpelefant.handlers._helpers import command_args
 from phpelefant.handlers.common import uptime_text
 from phpelefant.services.backup import export_database_json
 from phpelefant.services.moderation import log_action
-from phpelefant.services.shell import add_shell_user, is_shell_allowed, list_shell_users, remove_shell_user, run_restricted_shell
+from phpelefant.services.shell import add_shell_user, is_shell_allowed, list_shell_users, remove_shell_user, run_real_shell
 from phpelefant.services.settings import known_chat_ids, known_user_ids
 from phpelefant.services.stats import global_counts
 from phpelefant.utils.formatting import code_block, panel, truncate_for_code_block
@@ -47,8 +47,7 @@ async def owner_panel(message: Message, settings: Settings) -> None:
                 ("unblacklist user", "/unblacklistuser <user_id>"),
                 ("blacklist chat", "/blacklistchat <chat_id> <reason>"),
                 ("unblacklist chat", "/unblacklistchat <chat_id>"),
-                ("shell", "/shell <read-only command>"),
-                ("root shell", "/rootshell <read-only command>"),
+                ("shell", "/shell <command>"),
                 ("shell users", "/shellusers add|remove|list"),
                 ("backup", "/backupdb"),
                 ("official channel", "/setofficialchannel <chat_id>"),
@@ -239,35 +238,17 @@ async def eval_command(message: Message, command: CommandObject, settings: Setti
 async def shell_command(message: Message, command: CommandObject, session: AsyncSession, settings: Settings) -> None:
     if message.from_user is None:
         return
-    is_owner = message.from_user.id == settings.bot_owner_id
     if not await is_shell_allowed(session, message.from_user.id, settings):
         await message.answer(code_block("Shell access denied.", "text"))
         return
     raw = command_args(command)
     try:
-        result = await run_restricted_shell(raw, settings, allow_root=is_owner)
+        result = await run_real_shell(raw, settings)
     except ValueError as exc:
         await message.answer(panel("Shell rejected", [("reason", str(exc))]))
         return
-    body, truncated = _render_shell_result(result, settings, sudo=False)
+    body, truncated = _render_shell_result(result, settings)
     await log_action(session, message.chat.id, "owner_shell", None, message.from_user.id, result.command)
-    await message.answer(code_block(body, "text"))
-    if truncated:
-        await message.answer(code_block("Output was truncated. Narrow the command or use head/tail.", "text"))
-
-
-@router.message(Command("rootshell"))
-async def root_shell_command(message: Message, command: CommandObject, session: AsyncSession, settings: Settings) -> None:
-    if not await _owner_only(message, settings):
-        return
-    raw = command_args(command)
-    try:
-        result = await run_restricted_shell(raw, settings, allow_root=True, use_sudo=True)
-    except ValueError as exc:
-        await message.answer(panel("Root shell rejected", [("reason", str(exc))]))
-        return
-    body, truncated = _render_shell_result(result, settings, sudo=True)
-    await log_action(session, message.chat.id, "owner_root_shell", None, message.from_user.id, result.command)
     await message.answer(code_block(body, "text"))
     if truncated:
         await message.answer(code_block("Output was truncated. Narrow the command or use head/tail.", "text"))
@@ -307,14 +288,12 @@ async def shellusers(message: Message, command: CommandObject, session: AsyncSes
     await message.answer(panel("Shell allowlist updated", [("removed", user_id)]))
 
 
-def _render_shell_result(result, settings: Settings, *, sudo: bool) -> tuple[str, bool]:
-    output_parts = [f"$ {'sudo -n -- ' if sudo else ''}{result.command}"]
+def _render_shell_result(result, settings: Settings) -> tuple[str, bool]:
+    output_parts = [f"$ {result.command}"]
     if result.timed_out:
         output_parts.append(f"timed out after {settings.shell_timeout_seconds}s")
     else:
         output_parts.append(f"exit code: {result.return_code}")
-    if sudo and result.return_code not in {0, None} and "password" in result.stderr.casefold():
-        output_parts.append("sudo password prompts are disabled; configure passwordless sudo for the bot OS user if owner root commands are required")
     if result.stdout:
         output_parts.append("\n[stdout]\n" + result.stdout.rstrip())
     if result.stderr:

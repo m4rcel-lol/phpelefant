@@ -6,7 +6,7 @@ import discord
 from discord.ext import commands
 
 from phpelefant_discord.bot import PHPelefantBot
-from phpelefant_discord.utils.formatting import code_embed, embed
+from phpelefant_discord.utils.formatting import code_embed, embed, image_embed
 
 JOKES = [
     "Why do PHP developers like elephants? They never forget a semicolon.",
@@ -35,7 +35,7 @@ class Fun(commands.Cog):
 
     @commands.hybrid_command(name="meme")
     async def meme(self, ctx: commands.Context) -> None:
-        await ctx.send(embed=embed("Meme", "https://i.imgflip.com/1bij.jpg"))
+        await ctx.send(embed=image_embed("Meme", "https://i.imgflip.com/1bij.jpg"))
 
     @commands.hybrid_command(name="quote")
     async def quote(self, ctx: commands.Context) -> None:
@@ -90,11 +90,11 @@ class Fun(commands.Cog):
 
     @commands.hybrid_command(name="cat")
     async def cat(self, ctx: commands.Context) -> None:
-        await ctx.send(embed=embed("Cat", "https://cataas.com/cat"))
+        await ctx.send(embed=image_embed("Cat", "https://cataas.com/cat"))
 
     @commands.hybrid_command(name="dog")
     async def dog(self, ctx: commands.Context) -> None:
-        await ctx.send(embed=embed("Dog", "https://placedog.net/640/480?random"))
+        await ctx.send(embed=image_embed("Dog", "https://placedog.net/640/480?random"))
 
     @commands.hybrid_command(name="poll")
     async def poll(self, ctx: commands.Context, question: str, option1: str, option2: str, option3: str | None = None, option4: str | None = None) -> None:

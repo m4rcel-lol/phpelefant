@@ -20,6 +20,12 @@ def embed(title: str, description: str | None = None, *, color: int = 0x4F8CC9) 
     return discord.Embed(title=title, description=description, color=color)
 
 
+def image_embed(title: str, image_url: str, description: str | None = None, *, color: int = 0x4F8CC9) -> discord.Embed:
+    item = embed(title, description, color=color)
+    item.set_image(url=image_url)
+    return item
+
+
 def code_embed(title: str, value: str, language: str = "") -> discord.Embed:
     return embed(title, code_block(value, language))
 

@@ -13,6 +13,7 @@ from phpelefant.config import Settings
 from phpelefant.db.models import User
 from phpelefant.services.settings import get_or_create_chat_settings
 from phpelefant.services.stats import global_counts
+from phpelefant.utils.formatting import panel
 from phpelefant.utils.text import html_escape
 
 router = Router(name="common")
@@ -52,9 +53,13 @@ async def help_command(message: Message) -> None:
 @router.message(Command("about"))
 async def about(message: Message, settings: Settings) -> None:
     await message.answer(
-        "<b>PHPelefant</b>\n"
-        "Purpose: moderation, activities, and fun community tools.\n"
-        f"Official channel: <code>{settings.official_channel_id}</code>"
+        panel(
+            "PHPelefant",
+            [
+                ("purpose", "moderation, activities, and fun community tools"),
+                ("official channel", settings.official_channel_id),
+            ],
+        )
     )
 
 
@@ -112,10 +117,15 @@ async def uptime(message: Message) -> None:
 async def stats(message: Message, session: AsyncSession) -> None:
     counts = await global_counts(session)
     await message.answer(
-        f"Groups: <code>{counts['groups']}</code>\n"
-        f"Users: <code>{counts['users']}</code>\n"
-        f"Messages processed: <code>{counts['messages']}</code>\n"
-        f"Moderation actions: <code>{counts['moderation_actions']}</code>"
+        panel(
+            "Bot statistics",
+            [
+                ("groups", counts["groups"]),
+                ("users", counts["users"]),
+                ("messages processed", counts["messages"]),
+                ("moderation actions", counts["moderation_actions"]),
+            ],
+        )
     )
 
 
@@ -126,20 +136,24 @@ async def show_settings(message: Message, session: AsyncSession, settings: Setti
         return
     row = await get_or_create_chat_settings(session, message.chat.id, settings)
     await message.answer(
-        "<b>Group settings</b>\n"
-        f"Welcome: {row.welcome_enabled}\n"
-        f"Goodbye: {row.goodbye_enabled}\n"
-        f"Warning limit: {row.warning_limit}\n"
-        f"Anti-spam: {row.anti_spam_enabled}\n"
-        f"Anti-link: {row.anti_link_enabled}\n"
-        f"Anti-caps: {row.anti_caps_enabled}\n"
-        f"Anti-badword: {row.anti_badword_enabled}\n"
-        f"Activity: {row.activity_enabled}\n"
-        f"Fun: {row.fun_enabled}\n"
-        f"Force-subscribe: {row.force_subscribe_enabled}\n"
-        f"Log channel: {row.log_channel_id or 'not set'}\n"
-        f"Language: {html_escape(row.language)}\n"
-        f"Timezone: {html_escape(row.timezone)}"
+        panel(
+            "Group settings",
+            [
+                ("welcome", row.welcome_enabled),
+                ("goodbye", row.goodbye_enabled),
+                ("warning limit", row.warning_limit),
+                ("anti-spam", row.anti_spam_enabled),
+                ("anti-link", row.anti_link_enabled),
+                ("anti-caps", row.anti_caps_enabled),
+                ("anti-badword", row.anti_badword_enabled),
+                ("activity", row.activity_enabled),
+                ("fun", row.fun_enabled),
+                ("force-subscribe", row.force_subscribe_enabled),
+                ("log channel", row.log_channel_id or "not set"),
+                ("language", row.language),
+                ("timezone", row.timezone),
+            ],
+        )
     )
 
 
@@ -153,4 +167,3 @@ async def language(message: Message, session: AsyncSession, settings: Settings) 
 async def timezone(message: Message, session: AsyncSession, settings: Settings) -> None:
     row = await get_or_create_chat_settings(session, message.chat.id, settings)
     await message.answer(f"Timezone: <code>{html_escape(row.timezone)}</code>")
-

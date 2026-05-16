@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     database_url: str = Field("sqlite+aiosqlite:///./phpelefant.db", alias="DATABASE_URL")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
     enable_eval: bool = Field(False, alias="ENABLE_EVAL")
+    shell_working_directory: str = Field(".", alias="SHELL_WORKING_DIRECTORY")
+    shell_timeout_seconds: int = Field(10, alias="SHELL_TIMEOUT_SECONDS")
+    shell_output_limit: int = Field(3500, alias="SHELL_OUTPUT_LIMIT")
     delete_service_messages: bool = Field(False, alias="DELETE_SERVICE_MESSAGES")
     default_language: str = Field("en", alias="DEFAULT_LANGUAGE")
     default_timezone: str = Field("UTC", alias="DEFAULT_TIMEZONE")
@@ -26,6 +29,20 @@ class Settings(BaseSettings):
             raise ValueError("PHPelefant owner ID must remain 6104236913 unless code is audited")
         return value
 
+    @field_validator("shell_timeout_seconds")
+    @classmethod
+    def validate_shell_timeout(cls, value: int) -> int:
+        if not 1 <= value <= 30:
+            raise ValueError("SHELL_TIMEOUT_SECONDS must be between 1 and 30")
+        return value
+
+    @field_validator("shell_output_limit")
+    @classmethod
+    def validate_shell_output_limit(cls, value: int) -> int:
+        if not 500 <= value <= 3900:
+            raise ValueError("SHELL_OUTPUT_LIMIT must be between 500 and 3900")
+        return value
+
     @property
     def token(self) -> str:
         return self.bot_token.get_secret_value()
@@ -34,4 +51,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

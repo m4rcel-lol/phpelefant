@@ -20,6 +20,7 @@ BACKUP_MODELS = [
     models.ActivityDaily,
     models.BlacklistedUser,
     models.BlacklistedChat,
+    models.ShellAllowedUser,
     models.WhitelistedUser,
     models.WhitelistedDomain,
     models.BadWord,

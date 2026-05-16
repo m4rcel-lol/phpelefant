@@ -16,8 +16,10 @@ from phpelefant.handlers._helpers import command_args
 from phpelefant.handlers.common import uptime_text
 from phpelefant.services.backup import export_database_json
 from phpelefant.services.moderation import log_action
+from phpelefant.services.shell import add_shell_user, is_shell_allowed, list_shell_users, remove_shell_user, run_restricted_shell
 from phpelefant.services.settings import known_chat_ids, known_user_ids
 from phpelefant.services.stats import global_counts
+from phpelefant.utils.formatting import code_block, panel, truncate_for_code_block
 
 router = Router(name="owner")
 
@@ -34,19 +36,25 @@ async def owner_panel(message: Message, settings: Settings) -> None:
     if not await _owner_only(message, settings):
         return
     await message.answer(
-        "<b>PHPelefant owner panel</b>\n"
-        "/broadcast <message>\n"
-        "/broadcastchannel <message>\n"
-        "/statsglobal\n"
-        "/leavechat <chat_id>\n"
-        "/blacklistuser <user_id> <reason>\n"
-        "/unblacklistuser <user_id>\n"
-        "/blacklistchat <chat_id> <reason>\n"
-        "/unblacklistchat <chat_id>\n"
-        "/backupdb\n"
-        "/setofficialchannel <chat_id>\n"
-        "/restart CONFIRM\n"
-        "/shutdown CONFIRM"
+        panel(
+            "PHPelefant owner panel",
+            [
+                ("broadcast", "/broadcast <message>"),
+                ("channel", "/broadcastchannel <message>"),
+                ("global stats", "/statsglobal"),
+                ("leave chat", "/leavechat <chat_id>"),
+                ("blacklist user", "/blacklistuser <user_id> <reason>"),
+                ("unblacklist user", "/unblacklistuser <user_id>"),
+                ("blacklist chat", "/blacklistchat <chat_id> <reason>"),
+                ("unblacklist chat", "/unblacklistchat <chat_id>"),
+                ("shell", "/shell <read-only command>"),
+                ("shell users", "/shellusers add|remove|list"),
+                ("backup", "/backupdb"),
+                ("official channel", "/setofficialchannel <chat_id>"),
+                ("restart", "/restart CONFIRM"),
+                ("shutdown", "/shutdown CONFIRM"),
+            ],
+        )
     )
 
 
@@ -107,13 +115,17 @@ async def statsglobal(message: Message, session: AsyncSession, settings: Setting
     except Exception:
         db_ok = "error"
     await message.answer(
-        "<b>Global statistics</b>\n"
-        f"Total groups: <code>{counts['groups']}</code>\n"
-        f"Total users: <code>{counts['users']}</code>\n"
-        f"Total messages processed: <code>{counts['messages']}</code>\n"
-        f"Total moderation actions: <code>{counts['moderation_actions']}</code>\n"
-        f"Uptime: <code>{uptime_text()}</code>\n"
-        f"Database status: <code>{db_ok}</code>"
+        panel(
+            "Global statistics",
+            [
+                ("total groups", counts["groups"]),
+                ("total users", counts["users"]),
+                ("messages processed", counts["messages"]),
+                ("moderation actions", counts["moderation_actions"]),
+                ("uptime", uptime_text()),
+                ("database", db_ok),
+            ],
+        )
     )
 
 
@@ -219,7 +231,73 @@ async def eval_command(message: Message, command: CommandObject, settings: Setti
         await message.answer("Expression too long.")
         return
     result = eval(expr, {"__builtins__": {}}, {"time": time.time})  # noqa: S307
-    await message.answer(f"<code>{str(result)[:3500]}</code>")
+    await message.answer(code_block(str(result)[: settings.shell_output_limit], "text"))
+
+
+@router.message(Command("shell"))
+async def shell_command(message: Message, command: CommandObject, session: AsyncSession, settings: Settings) -> None:
+    if message.from_user is None:
+        return
+    if not await is_shell_allowed(session, message.from_user.id, settings):
+        await message.answer("Shell access denied.")
+        return
+    raw = command_args(command)
+    try:
+        result = await run_restricted_shell(raw, settings)
+    except ValueError as exc:
+        await message.answer(panel("Shell rejected", [("reason", str(exc))]))
+        return
+    output_parts = []
+    output_parts.append(f"$ {result.command}")
+    if result.timed_out:
+        output_parts.append(f"timed out after {settings.shell_timeout_seconds}s")
+    else:
+        output_parts.append(f"exit code: {result.return_code}")
+    if result.stdout:
+        output_parts.append("\n[stdout]\n" + result.stdout.rstrip())
+    if result.stderr:
+        output_parts.append("\n[stderr]\n" + result.stderr.rstrip())
+    if not result.stdout and not result.stderr:
+        output_parts.append("\n(no output)")
+    body, truncated = truncate_for_code_block("\n".join(output_parts), settings.shell_output_limit)
+    await log_action(session, message.chat.id, "owner_shell", None, message.from_user.id, result.command)
+    await message.answer("<b>Shell output</b>\n" + code_block(body, "text"))
+    if truncated:
+        await message.answer("Output was truncated. Narrow the command or use head/tail.")
+
+
+@router.message(Command("shellusers"))
+async def shellusers(message: Message, command: CommandObject, session: AsyncSession, settings: Settings) -> None:
+    if not await _owner_only(message, settings):
+        return
+    args = command_args(command).split(maxsplit=2)
+    if not args or args[0] not in {"add", "remove", "list"}:
+        await message.answer(panel("Shell users", [("usage", "/shellusers add <user_id> [note]"), ("remove", "/shellusers remove <user_id>"), ("list", "/shellusers list")]))
+        return
+    action = args[0]
+    if action == "list":
+        users = await list_shell_users(session, settings)
+        await message.answer(panel("Shell allowed users", [(str(index), user_id) for index, user_id in enumerate(users, start=1)]))
+        return
+    if len(args) < 2:
+        await message.answer("Provide a numeric Telegram user ID.")
+        return
+    try:
+        user_id = int(args[1])
+    except ValueError:
+        await message.answer("User ID must be numeric.")
+        return
+    if action == "add":
+        await add_shell_user(session, user_id, message.from_user.id, args[2] if len(args) > 2 else None)
+        await log_action(session, message.chat.id, "owner_shell_allow_add", user_id, message.from_user.id, args[2] if len(args) > 2 else None)
+        await message.answer(panel("Shell allowlist updated", [("added", user_id)]))
+        return
+    if user_id == settings.bot_owner_id:
+        await message.answer("The owner always has shell access and cannot be removed.")
+        return
+    await remove_shell_user(session, user_id)
+    await log_action(session, message.chat.id, "owner_shell_allow_remove", user_id, message.from_user.id, None)
+    await message.answer(panel("Shell allowlist updated", [("removed", user_id)]))
 
 
 @router.message(Command("restart"))

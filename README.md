@@ -168,9 +168,9 @@ Fun responses are static, safe, and public-group appropriate by default.
 
 `/about` identifies the bot as PHPelefant and lists the official channel ID.
 
-## Owner Commands
+## Owner And Shell Commands
 
-Only Telegram user ID `6104236913` can use:
+Only Telegram user ID `6104236913` can use these owner administration commands:
 
 - `/owner`
 - `/broadcast <message>`
@@ -181,6 +181,9 @@ Only Telegram user ID `6104236913` can use:
 - `/unblacklistuser <user_id>`
 - `/blacklistchat <chat_id> <reason>`
 - `/unblacklistchat <chat_id>`
+- `/shellusers add <user_id> [note]`
+- `/shellusers remove <user_id>`
+- `/shellusers list`
 - `/eval` disabled unless `ENABLE_EVAL=true`
 - `/restart CONFIRM`
 - `/shutdown CONFIRM`
@@ -188,6 +191,37 @@ Only Telegram user ID `6104236913` can use:
 - `/setofficialchannel [channel_id]`
 
 Ownership is checked only by numeric Telegram ID, never by username.
+
+The owner and users added with `/shellusers add` can use `/shell <read-only command>`.
+
+## Restricted Shell Access
+
+The owner always has shell access. The owner can add trusted Telegram user IDs to the shell allowlist:
+
+```text
+/shellusers add 123456789 trusted operator
+/shellusers remove 123456789
+/shellusers list
+```
+
+Allowed users can run:
+
+```text
+/shell ls -la
+/shell df -h
+/shell tail -100 app.log
+```
+
+The shell runner is intentionally restricted:
+
+- Uses `asyncio.create_subprocess_exec`, not `shell=True`.
+- Allows only read-oriented commands such as `ls`, `cat`, `tail`, `head`, `rg`, `grep`, `find`, `ps`, `df`, `du`, `uptime`, and `whoami`.
+- Rejects shell operators, pipes, redirects, command substitutions, explicit executable paths, and write-capable flags such as `find -delete` or `sed -i`.
+- Runs as the same OS user as the bot process.
+- Uses a sanitized environment and redacts configured bot token and database URL from command output.
+- Enforces `SHELL_TIMEOUT_SECONDS` and `SHELL_OUTPUT_LIMIT`.
+
+For stronger isolation, deploy the bot under a dedicated unprivileged OS user or inside a locked-down container with a read-only filesystem where practical. Application-level filtering reduces risk but cannot replace OS-level permissions.
 
 ## Force Subscribe
 
@@ -199,7 +233,7 @@ When enabled, fun and activity commands require membership in the configured off
 
 ## Database Schema
 
-The initial Alembic migration creates:
+The Alembic migrations create:
 
 - `users`
 - `chats`
@@ -210,6 +244,7 @@ The initial Alembic migration creates:
 - `activity_daily`
 - `blacklisted_users`
 - `blacklisted_chats`
+- `shell_allowed_users`
 - `whitelisted_users`
 - `whitelisted_domains`
 - `bad_words`
@@ -234,9 +269,10 @@ python -m compileall phpelefant tests
 - Secrets are read from environment variables.
 - Bot token is never logged.
 - Owner commands are hard-gated to Telegram user ID `6104236913`.
+- Shell allowlist changes are owner-only; the owner cannot be removed from shell access.
+- Shell output is returned inside Telegram code blocks.
 - `/eval` is disabled by default and should stay disabled outside an isolated developer environment.
 - User input is validated before moderation actions.
 - Telegram API failures are caught and converted into safe user-facing messages.
 - Anti-spam punishments are skipped for owner, group admins, and whitelisted users.
 - Dangerous process controls require explicit `CONFIRM`.
-

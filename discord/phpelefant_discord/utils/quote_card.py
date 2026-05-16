@@ -170,8 +170,6 @@ def render_quote_card(data: QuoteCardData) -> bytes:
     COL_LEFT_WIDTH = 380
     CONTENT_PAD = 45
     HEADER_H = 64
-    POSTS_COUNT = f"Posts: {random.randint(100, 9999)}"
-    JOIN_DATE = f"Joined: {random.randint(2001, 2010)}-04-12"
 
     scratch = Image.new("RGB", (WIDTH, MIN_HEIGHT), BG)
     scratch_draw = ImageDraw.Draw(scratch)
@@ -188,7 +186,7 @@ def render_quote_card(data: QuoteCardData) -> bytes:
 
     avatar_size = 260
     
-    col_left_min_h = CONTENT_PAD + avatar_size + 185
+    col_left_min_h = CONTENT_PAD + avatar_size + 85
     right_content_h = quote_height + CONTENT_PAD * 2 + 40
 
     table_content_h = max(col_left_min_h, right_content_h)
@@ -246,11 +244,6 @@ def render_quote_card(data: QuoteCardData) -> bytes:
     
     avatar_img = square_avatar(data.avatar_bytes, avatar_size)
     base.paste(avatar_img, (inner_x0 + 25, author_y_curr))
-    author_y_curr += avatar_size + 30
-    
-    draw.text((inner_x0 + 25, author_y_curr), JOIN_DATE, font=meta_font, fill=META_TEXT)
-    author_y_curr += 40
-    draw.text((inner_x0 + 25, author_y_curr), POSTS_COUNT, font=meta_font, fill=META_TEXT)
 
     text_y_curr = content_y0 + (table_content_h - quote_height) // 2
 

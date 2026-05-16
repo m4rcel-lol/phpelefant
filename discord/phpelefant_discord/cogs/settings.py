@@ -86,7 +86,7 @@ class SettingsCog(commands.Cog, name="Settings"):
     async def forcesubstatus(self, ctx: commands.Context) -> None:
         async with session_scope(self.bot.session_factory) as session:
             settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
-        await ctx.send(embed=table_embed("Force subscribe", [("enabled", settings.force_subscribe_enabled), ("channel", settings.official_channel_id or "not set")]))
+        await ctx.send(embed=table_embed("Force subscribe", [("enabled", settings.force_subscribe_enabled), ("official server", settings.official_channel_id or "not set")]))
 
     @commands.hybrid_group(name="badwords", fallback="list")
     @commands.guild_only()
@@ -147,4 +147,3 @@ class SettingsCog(commands.Cog, name="Settings"):
 
 async def setup(bot: PHPelefantBot) -> None:
     await bot.add_cog(SettingsCog(bot))
-

@@ -34,11 +34,13 @@ class Events(commands.Cog):
             if ctx.guild and ctx.command and ctx.command.cog_name in {"Fun", "Activity"}:
                 settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
                 if settings.force_subscribe_enabled and ctx.author.id != self.bot.settings.bot_owner_id:
-                    channel = ctx.guild.get_channel(settings.official_channel_id)
-                    if isinstance(channel, discord.abc.GuildChannel) and isinstance(ctx.author, discord.Member):
-                        if not channel.permissions_for(ctx.author).view_channel:
-                            await ctx.send(code_block("You need access to the official channel before using this command."))
-                            return False
+                    official_guild = self.bot.get_guild(settings.official_channel_id)
+                    if official_guild is None:
+                        await ctx.send(code_block("Official server is not available to the bot."))
+                        return False
+                    if official_guild.get_member(ctx.author.id) is None:
+                        await ctx.send(code_block("Join the official PHPelefant server before using this command."))
+                        return False
         return True
 
     @commands.Cog.listener()

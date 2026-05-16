@@ -48,7 +48,7 @@ class Owner(commands.Cog):
                     ("shell", "shell <command>"),
                     ("shellusers", "shellusers add|remove|list"),
                     ("backupdb", "backupdb"),
-                    ("setofficialchannel", "setofficialchannel <channel_id>"),
+                    ("setofficialserver", "setofficialserver <server_id>"),
                     ("restart", "restart CONFIRM"),
                     ("shutdown", "shutdown CONFIRM"),
                 ],
@@ -78,12 +78,13 @@ class Owner(commands.Cog):
     @commands.hybrid_command(name="broadcastchannel")
     @owner_only()
     async def broadcastchannel(self, ctx: commands.Context, *, message: str) -> None:
-        channel = self.bot.get_channel(self.bot.settings.official_channel_id)
+        guild = self.bot.get_guild(self.bot.settings.official_server_id)
+        channel = guild.system_channel if guild else None
         if not isinstance(channel, discord.abc.Messageable):
-            await ctx.send(code_block("Official channel is not configured or not cached."))
+            await ctx.send(code_block("Official server system channel is not configured or not cached."))
             return
         await channel.send(message)
-        await ctx.send(code_block("Sent to official channel."))
+        await ctx.send(code_block("Sent to official server system channel."))
 
     @commands.hybrid_command(name="statsglobal")
     @owner_only()
@@ -220,12 +221,12 @@ class Owner(commands.Cog):
             payload = await export_database_json(session)
         await ctx.send(file=discord.File(fp=io.BytesIO(payload), filename="phpelefant-discord-backup.json"))
 
-    @commands.hybrid_command(name="setofficialchannel")
+    @commands.hybrid_command(name="setofficialserver", aliases=["setofficialchannel"])
     @owner_only()
-    async def setofficialchannel(self, ctx: commands.Context, channel_id: int) -> None:
+    async def setofficialserver(self, ctx: commands.Context, server_id: int) -> None:
         async with session_scope(self.bot.session_factory) as session:
-            await session.execute(update(GuildSettings).values(official_channel_id=channel_id))
-        await ctx.send(code_block(f"Official channel set to {channel_id} for all configured guilds."))
+            await session.execute(update(GuildSettings).values(official_channel_id=server_id))
+        await ctx.send(code_block(f"Official server set to {server_id} for all configured guilds."))
 
     @staticmethod
     def render_shell_result(result) -> str:

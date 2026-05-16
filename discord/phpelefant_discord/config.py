@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,8 +10,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     discord_token: SecretStr = Field(..., alias="DISCORD_TOKEN")
-    bot_owner_id: int = Field(6104236913, alias="BOT_OWNER_ID")
-    official_channel_id: int = Field(0, alias="OFFICIAL_CHANNEL_ID")
+    bot_owner_id: int = Field(1435161291365814325, alias="BOT_OWNER_ID")
+    official_server_id: int = Field(
+        1505254579715964978,
+        validation_alias=AliasChoices("OFFICIAL_SERVER_ID", "OFFICIAL_CHANNEL_ID"),
+    )
     command_prefix: str = Field("!", alias="COMMAND_PREFIX")
     database_url: str = Field("sqlite+aiosqlite:///./phpelefant-discord.db", alias="DATABASE_URL")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
@@ -25,13 +28,6 @@ class Settings(BaseSettings):
     default_language: str = Field("en", alias="DEFAULT_LANGUAGE")
     default_timezone: str = Field("UTC", alias="DEFAULT_TIMEZONE")
     xp_cooldown_seconds: int = Field(45, alias="XP_COOLDOWN_SECONDS")
-
-    @field_validator("bot_owner_id")
-    @classmethod
-    def validate_owner(cls, value: int) -> int:
-        if value != 6104236913:
-            raise ValueError("PHPelefant owner ID must remain 6104236913 unless code is audited")
-        return value
 
     @field_validator("shell_timeout_seconds")
     @classmethod
@@ -55,4 +51,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

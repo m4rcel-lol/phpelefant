@@ -5,7 +5,8 @@ This directory contains the Discord conversion of PHPelefant. It is a separate P
 Defaults:
 
 - Bot name: `PHPelefant`
-- Owner Discord user ID: `6104236913`
+- Owner Discord user ID: `1435161291365814325`
+- Official server ID: `1505254579715964978`
 - Runtime shell user: `phpelefant-env`
 - Local database: SQLite
 - Production database: PostgreSQL
@@ -110,7 +111,7 @@ Shell users:
 
 Security behavior:
 
-- Owner `6104236913` always has shell access.
+- Owner `1435161291365814325` always has shell access.
 - Additional shell users are managed only by the owner.
 - Shell subprocesses run as `phpelefant-env`, not root.
 - If the bot process starts as root, shell subprocesses drop privileges to `phpelefant-env`.
@@ -219,6 +220,7 @@ Owner:
 - `shell`
 - `shellusers`
 - `eval`
+- `setofficialserver`
 - `shutdown`
 
 ## Verification
@@ -227,4 +229,3 @@ Owner:
 python -m compileall phpelefant_discord tests
 pytest
 ```
-

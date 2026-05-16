@@ -34,7 +34,7 @@ class Utility(commands.Cog):
                 "PHPelefant",
                 [
                     ("purpose", "moderation, activities, and fun community tools"),
-                    ("official channel", self.bot.settings.official_channel_id or "not configured"),
+                    ("official server", self.bot.settings.official_server_id or "not configured"),
                     ("prefix", self.bot.settings.command_prefix),
                 ],
             )

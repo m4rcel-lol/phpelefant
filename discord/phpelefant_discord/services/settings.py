@@ -26,7 +26,7 @@ async def upsert_guild(session: AsyncSession, guild: discord.Guild, settings: Se
         session.add(
             GuildSettings(
                 guild_id=guild.id,
-                official_channel_id=settings.official_channel_id,
+                    official_channel_id=settings.official_server_id,
                 language=settings.default_language,
                 timezone=settings.default_timezone,
             )
@@ -42,7 +42,7 @@ async def get_or_create_guild_settings(session: AsyncSession, guild_id: int, set
         return row
     row = GuildSettings(
         guild_id=guild_id,
-        official_channel_id=settings.official_channel_id,
+        official_channel_id=settings.official_server_id,
         language=settings.default_language,
         timezone=settings.default_timezone,
     )
@@ -59,4 +59,3 @@ async def known_guild_ids(session: AsyncSession) -> list[int]:
 async def known_user_ids(session: AsyncSession) -> list[int]:
     result = await session.scalars(select(User.discord_id))
     return list(result)
-

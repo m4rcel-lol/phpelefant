@@ -7,26 +7,22 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-# High-Res Canvas Dimensions
+# High-Res Social Media Canvas Dimensions (1200x630 OpenGraph Standard)
 WIDTH = 1200
-MIN_HEIGHT = 600
-OUTER_MARGIN = 48
+MIN_HEIGHT = 630
+OUTER_MARGIN = 64
 CARD_RADIUS = 32
-ACCENT_WIDTH = 8
-CONTENT_PAD_X = 64
-CONTENT_PAD_Y = 64
-AVATAR_SIZE = 140
-AVATAR_RING = 4
-TEXT_GAP = 56
+CONTENT_PAD_X = 80
+CONTENT_PAD_Y = 80
+AVATAR_SIZE = 84
 
-# Premium Dark Theme Palette
-BG = (12, 14, 18)
-CARD_TOP = (28, 31, 38)
-CARD_BOTTOM = (18, 20, 26)
-CARD_BORDER = (45, 50, 60, 255)
-TEXT = (250, 252, 255)
-MUTED = (168, 178, 193)
-SUBTLE = (108, 116, 130)
+# Premium Dark Theme Palette (Linear/Vercel inspired)
+BG = (10, 10, 12)
+CARD_BG = (22, 23, 26, 230)
+CARD_BORDER = (46, 48, 54, 255)
+TEXT = (248, 249, 250)
+MUTED = (160, 165, 175)
+SUBTLE = (110, 115, 125)
 
 
 @dataclass(slots=True)
@@ -38,28 +34,26 @@ class QuoteCardData:
     avatar_bytes: bytes | None = None
 
 
-def load_font(size: int, *, bold: bool = False, italic: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def load_font(size: int, *, bold: bool = False, italic: bool = False, serif: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     paths = []
-    if italic and bold:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-BoldItalic.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Bold Italic.ttf"
-        ]
-    elif italic:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Italic.ttf"
-        ]
-    elif bold:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
-        ]
+    if serif:
+        if italic and bold:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSerif-BoldItalic.ttf", "/System/Library/Fonts/Supplemental/Georgia Bold Italic.ttf"]
+        elif italic:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSerif-Italic.ttf", "/System/Library/Fonts/Supplemental/Georgia Italic.ttf"]
+        elif bold:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", "/System/Library/Fonts/Supplemental/Georgia Bold.ttf"]
+        else:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", "/System/Library/Fonts/Supplemental/Georgia.ttf"]
     else:
-        paths = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/System/Library/Fonts/Supplemental/Arial.ttf"
-        ]
+        if italic and bold:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf", "/System/Library/Fonts/Supplemental/Arial Bold Italic.ttf"]
+        elif italic:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf", "/System/Library/Fonts/Supplemental/Arial Italic.ttf"]
+        elif bold:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf"]
+        else:
+            paths = ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"]
 
     for path in paths:
         try:
@@ -81,7 +75,7 @@ def line_height(font: ImageFont.FreeTypeFont | ImageFont.ImageFont, extra: int) 
 
 def clean_message(value: str) -> str:
     text = value.strip() or "[no text content]"
-    text = " ".join(text.replace("\r", "\n").split())
+    text = " ".join(text.replace("\n", "\n").split())
     if len(text) > 700:
         text = text[:697].rstrip() + "..."
     return text
@@ -105,26 +99,14 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont
     return lines[:12]
 
 
-def vertical_gradient(size: tuple[int, int], top: tuple[int, int, int], bottom: tuple[int, int, int]) -> Image.Image:
-    image = Image.new("RGB", size)
-    draw = ImageDraw.Draw(image)
-    for y in range(size[1]):
-        ratio = y / max(1, size[1] - 1)
-        r = int(top[0] + (bottom[0] - top[0]) * ratio)
-        g = int(top[1] + (bottom[1] - top[1]) * ratio)
-        b = int(top[2] + (bottom[2] - top[2]) * ratio)
-        draw.line([(0, y), (size[0], y)], fill=(r, g, b))
-    return image
-
-
-def add_noise(image: Image.Image, amount: float = 0.03) -> Image.Image:
+def add_grain(image: Image.Image, amount: float = 0.05) -> Image.Image:
     noise = Image.new("RGBA", image.size, (0, 0, 0, 0))
     pixels = noise.load()
     width, height = image.size
     for y in range(height):
         for x in range(width):
             if random.random() < amount:
-                pixels[x, y] = (255, 255, 255, random.randint(5, 12))
+                pixels[x, y] = (255, 255, 255, random.randint(3, 10))
     return Image.alpha_composite(image.convert("RGBA"), noise)
 
 
@@ -135,26 +117,7 @@ def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
     return mask
 
 
-def create_gradient_ring(size: int, width: int, color1: tuple[int, int, int], color2: tuple[int, int, int]) -> Image.Image:
-    base = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(base)
-    for y in range(size):
-        ratio = y / size
-        r = int(color1[0] + (color2[0] - color1[0]) * ratio)
-        g = int(color1[1] + (color2[1] - color1[1]) * ratio)
-        b = int(color1[2] + (color2[2] - color1[2]) * ratio)
-        draw.line([(0, y), (size, y)], fill=(r, g, b, 255))
-
-    mask = Image.new("L", (size, size), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.ellipse((0, 0, size - 1, size - 1), fill=255)
-    mask_draw.ellipse((width, width, size - 1 - width, size - 1 - width), fill=0)
-
-    base.putalpha(mask)
-    return base
-
-
-def circular_avatar(avatar_bytes: bytes | None) -> tuple[Image.Image, Image.Image]:
+def circular_avatar(avatar_bytes: bytes | None, size: int) -> tuple[Image.Image, Image.Image]:
     if avatar_bytes:
         try:
             avatar = Image.open(BytesIO(avatar_bytes)).convert("RGB")
@@ -164,141 +127,161 @@ def circular_avatar(avatar_bytes: bytes | None) -> tuple[Image.Image, Image.Imag
         avatar = None
 
     if not avatar:
-        avatar = Image.new("RGB", (AVATAR_SIZE, AVATAR_SIZE), (40, 45, 55))
+        avatar = Image.new("RGB", (size, size), (30, 32, 38))
         draw = ImageDraw.Draw(avatar)
-        font = load_font(60, bold=True)
-        draw.text((AVATAR_SIZE / 2, AVATAR_SIZE / 2), "?", font=font, fill=TEXT, anchor="mm")
+        font = load_font(int(size * 0.45), bold=True)
+        draw.text((size / 2, size / 2 - 2), "?", font=font, fill=TEXT, anchor="mm")
 
-    avatar = ImageOps.fit(avatar, (AVATAR_SIZE, AVATAR_SIZE), method=Image.Resampling.LANCZOS)
-    mask = Image.new("L", (AVATAR_SIZE, AVATAR_SIZE), 0)
+    avatar = ImageOps.fit(avatar, (size, size), method=Image.Resampling.LANCZOS)
+    mask = Image.new("L", (size, size), 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, AVATAR_SIZE - 1, AVATAR_SIZE - 1), fill=255)
+    draw.ellipse((1, 1, size - 2, size - 2), fill=255)
 
     return avatar.convert("RGBA"), mask
 
 
 def fit_font_for_message(
     draw: ImageDraw.ImageDraw, text: str, max_width: int
-) -> tuple[ImageFont.FreeTypeFont | ImageFont.ImageFont, list[str], int]:
-    for size in (48, 42, 38, 34, 30):
-        font = load_font(size, italic=False)
+) -> tuple[ImageFont.FreeTypeFont | ImageFont.ImageFont, list[str], int, int]:
+    for size in (64, 56, 48, 42, 36):
+        font = load_font(size, bold=False, serif=True)
         lines = wrap_text(draw, text, font, max_width)
-        height = len(lines) * line_height(font, 14)
-        if len(lines) <= 7 or size == 30:
-            return font, lines, height
-    font = load_font(30, italic=False)
+        lh_extra = int(size * 0.4)
+        height = len(lines) * line_height(font, lh_extra)
+        if len(lines) <= 6 or size == 36:
+            return font, lines, height, lh_extra
+    font = load_font(32, bold=False, serif=True)
     lines = wrap_text(draw, text, font, max_width)
-    return font, lines, len(lines) * line_height(font, 14)
+    lh_extra = int(32 * 0.4)
+    return font, lines, len(lines) * line_height(font, lh_extra), lh_extra
+
+
+def generate_mesh_gradient(size: tuple[int, int]) -> Image.Image:
+    width, height = size
+    image = Image.new("RGBA", size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    
+    # Deep, sophisticated ambient glow
+    draw.ellipse((-200, -300, 700, 600), fill=(20, 80, 200, 45))
+    draw.ellipse((width - 800, height - 600, width + 200, height + 400), fill=(120, 40, 200, 35))
+    draw.ellipse((width // 2 - 400, height - 200, width // 2 + 600, height + 500), fill=(40, 160, 180, 25))
+    
+    return image.filter(ImageFilter.GaussianBlur(160))
 
 
 def render_quote_card(data: QuoteCardData) -> bytes:
     scratch = Image.new("RGB", (WIDTH, MIN_HEIGHT), BG)
     scratch_draw = ImageDraw.Draw(scratch)
 
-    quote_left = OUTER_MARGIN + ACCENT_WIDTH + CONTENT_PAD_X
-    avatar_box = AVATAR_SIZE + AVATAR_RING * 2
-    text_x = quote_left + avatar_box + TEXT_GAP
-    text_width_available = WIDTH - text_x - OUTER_MARGIN - CONTENT_PAD_X
+    text_max_width = WIDTH - OUTER_MARGIN * 2 - CONTENT_PAD_X * 2
 
-    quote_font, lines, quote_height = fit_font_for_message(scratch_draw, data.message, text_width_available)
-    name_font = load_font(36, bold=True)
-    meta_font = load_font(24)
-    quote_mark_font = load_font(220, bold=True)
+    # Layout sizing
+    quote_font, lines, quote_height, lh_extra = fit_font_for_message(scratch_draw, data.message, text_max_width)
+    name_font = load_font(28, bold=True)
+    meta_font = load_font(22)
+    meta_time_font = load_font(22)
+    quote_mark_font = load_font(120, bold=True, serif=True)
 
-    header_height = 0
-    author_height = 80
-    content_height = max(avatar_box, header_height + quote_height + 40 + author_height)
+    header_gap = 60
+    author_height = AVATAR_SIZE
+    content_height = quote_height + header_gap + author_height
+    
     card_height = max(MIN_HEIGHT - OUTER_MARGIN * 2, CONTENT_PAD_Y * 2 + content_height)
     height = card_height + OUTER_MARGIN * 2
 
-    # Background
+    # Canvas Setup
     base = Image.new("RGB", (WIDTH, height), BG)
-    glow = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-
-    # Elegant dynamic glowing orbs
-    glow_draw.ellipse((-300, -300, 700, 700), fill=(80, 140, 255, 35))
-    glow_draw.ellipse((WIDTH - 700, height - 700, WIDTH + 300, height + 300), fill=(160, 80, 255, 30))
-    base_rgba = Image.alpha_composite(base.convert("RGBA"), glow.filter(ImageFilter.GaussianBlur(100)))
-
-    # Add subtle backdrop noise
-    base_rgba = add_noise(base_rgba, 0.02)
+    mesh = generate_mesh_gradient((WIDTH, height))
+    base_rgba = Image.alpha_composite(base.convert("RGBA"), mesh)
+    base_rgba = add_grain(base_rgba, 0.04)
 
     card_rect = (OUTER_MARGIN, OUTER_MARGIN, WIDTH - OUTER_MARGIN, height - OUTER_MARGIN)
-    card_size = (card_rect[2] - card_rect[0], card_rect[3] - card_rect[1])
+    card_width = card_rect[2] - card_rect[0]
+    card_height = card_rect[3] - card_rect[1]
 
-    # Card Drop Shadow
+    # Drop Shadow
+    shadow_offset = 32
     shadow = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
     shadow_draw.rounded_rectangle(
-        (card_rect[0] + 16, card_rect[1] + 24, card_rect[2] + 16, card_rect[3] + 24),
+        (card_rect[0] + 20, card_rect[1] + shadow_offset, card_rect[2] - 20, card_rect[3] + shadow_offset),
         radius=CARD_RADIUS,
-        fill=(0, 0, 0, 150),
+        fill=(0, 0, 0, 140),
     )
-    base_rgba = Image.alpha_composite(base_rgba, shadow.filter(ImageFilter.GaussianBlur(36)))
+    base_rgba = Image.alpha_composite(base_rgba, shadow.filter(ImageFilter.GaussianBlur(40)))
 
-    # Card Body
-    card_bg = vertical_gradient(card_size, CARD_TOP, CARD_BOTTOM).convert("RGBA")
-    mask = rounded_mask(card_size, CARD_RADIUS)
-
-    # Watermark Quote Mark inside card
-    card_draw = ImageDraw.Draw(card_bg)
-    card_draw.text((card_size[0] - 120, 0), "”", font=quote_mark_font, fill=(255, 255, 255, 10), anchor="ra")
-
+    # Main Card Body
+    card_bg = Image.new("RGBA", (card_width, card_height), CARD_BG)
+    mask = rounded_mask((card_width, card_height), CARD_RADIUS)
     base_rgba.paste(card_bg, (card_rect[0], card_rect[1]), mask)
 
     draw = ImageDraw.Draw(base_rgba)
-
-    # Card Border outline
+    
+    # Outer Border with top-edge highlight
     draw.rounded_rectangle(card_rect, radius=CARD_RADIUS, outline=CARD_BORDER, width=2)
+    
+    # Inner glowing edge (top only)
+    top_edge = Image.new("RGBA", (card_width, card_height), (0, 0, 0, 0))
+    top_edge_draw = ImageDraw.Draw(top_edge)
+    top_edge_draw.rounded_rectangle((0, 0, card_width - 1, card_height - 1), radius=CARD_RADIUS, outline=(255, 255, 255, 20), width=1)
+    # Mask out everything except the very top curve
+    crop_mask = Image.new("L", (card_width, card_height), 0)
+    crop_draw = ImageDraw.Draw(crop_mask)
+    crop_draw.rectangle((0, 0, card_width, 60), fill=255)
+    
+    final_edge_mask = Image.new("L", (card_width, card_height), 0)
+    final_edge_mask.paste(mask, (0, 0), crop_mask)
+    base_rgba.paste(top_edge, (card_rect[0], card_rect[1]), final_edge_mask)
 
-    # Accent Line Gradient
-    accent_layer = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
-    accent_draw = ImageDraw.Draw(accent_layer)
-    accent_rect = (card_rect[0], card_rect[1], card_rect[0] + ACCENT_WIDTH + 16, card_rect[3])
-    accent_draw.rounded_rectangle(accent_rect, radius=CARD_RADIUS, fill=(255, 255, 255, 255))
+    # Ambient Quote Mark Watermark
+    overlay = Image.new("RGBA", (WIDTH, height), (0, 0, 0, 0))
+    overlay_draw = ImageDraw.Draw(overlay)
+    # Position top left of card slightly offset
+    overlay_draw.text((card_rect[0] + CONTENT_PAD_X - 10, card_rect[1] + CONTENT_PAD_Y - 40), "“", font=quote_mark_font, fill=(255, 255, 255, 12))
+    base_rgba.paste(overlay, (0, 0), overlay)
 
-    accent_grad = vertical_gradient((WIDTH, height), (75, 140, 255), (140, 80, 255)).convert("RGBA")
+    content_top = card_rect[1] + (card_height - content_height) // 2
 
-    # Crop the exact region for the accent strip
-    mask_accent = Image.new("L", (WIDTH, height), 0)
-    mask_draw = ImageDraw.Draw(mask_accent)
-    mask_draw.rounded_rectangle(accent_rect, radius=CARD_RADIUS, fill=255)
-    mask_draw.rectangle((card_rect[0] + ACCENT_WIDTH, card_rect[1], WIDTH, card_rect[3]), fill=0)
-
-    base_rgba.paste(accent_grad, (0, 0), mask_accent)
-
-    # Avatar
-    content_top = card_rect[1] + CONTENT_PAD_Y
-    avatar_y = content_top + max(0, (content_height - avatar_box) // 2)
-
-    # Gradient Ring
-    ring = create_gradient_ring(avatar_box, AVATAR_RING, (75, 140, 255), (140, 80, 255))
-    base_rgba.paste(ring, (quote_left, avatar_y), ring)
-
-    avatar_img, avatar_mask = circular_avatar(data.avatar_bytes)
-    avatar_offset = AVATAR_RING
-    base_rgba.paste(avatar_img, (quote_left + avatar_offset, avatar_y + avatar_offset), avatar_mask)
-
-    # Text Placement
-    y = content_top + 10
-    quote_line_height = line_height(quote_font, 14)
+    # Print Text
+    y = content_top
+    text_x = card_rect[0] + CONTENT_PAD_X
+    q_line_height = line_height(quote_font, lh_extra)
+    
     for line in lines:
-        # Subtle text shadow for depth
-        draw.text((text_x, y + 2), line, font=quote_font, fill=(0, 0, 0, 180))
         draw.text((text_x, y), line, font=quote_font, fill=TEXT)
-        y += quote_line_height
+        y += q_line_height
 
-    author_y = y + 36
+    # Author Block
+    author_y = content_top + quote_height + header_gap
+    
+    avatar_img, avatar_mask = circular_avatar(data.avatar_bytes, AVATAR_SIZE)
+    base_rgba.paste(avatar_img, (text_x, author_y), avatar_mask)
+    draw.ellipse((text_x, author_y, text_x + AVATAR_SIZE - 1, author_y + AVATAR_SIZE - 1), outline=(255, 255, 255, 20), width=1)
 
-    # Stylish separator below text and above author
-    draw.line((text_x, author_y - 12, text_x + 60, author_y - 12), fill=(140, 80, 255), width=3)
+    author_text_x = text_x + AVATAR_SIZE + 24
+    
+    name_bbox = draw.textbbox((0, 0), data.author_name, font=name_font)
+    handle_bbox = draw.textbbox((0, 0), data.author_handle, font=meta_font)
+    name_h = name_bbox[3] - name_bbox[1]
+    handle_h = handle_bbox[3] - handle_bbox[1]
+    
+    author_text_y = author_y + (AVATAR_SIZE - (name_h + 8 + handle_h)) // 2
+    
+    draw.text((author_text_x, author_text_y), data.author_name[:80], font=name_font, fill=TEXT)
+    draw.text((author_text_x, author_text_y + name_h + 8), f"@{data.author_handle[:120].lstrip('@')}", font=meta_font, fill=MUTED)
 
-    draw.text((text_x, author_y), data.author_name[:80], font=name_font, fill=TEXT)
-    draw.text((text_x, author_y + 44), f"@{data.author_handle[:120].lstrip('@')}", font=meta_font, fill=MUTED)
+    # Timestamp right-aligned
     if data.timestamp is not None:
-        timestamp = data.timestamp.strftime("%b %d, %Y • %H:%M UTC")
-        draw.text((text_x, author_y + 80), timestamp, font=meta_font, fill=SUBTLE)
+        ts_str = data.timestamp.strftime("%b %d, %Y")
+        time_w = text_width(draw, ts_str, font=meta_time_font)
+        time_x = card_rect[2] - CONTENT_PAD_X - time_w
+        
+        # Center with avatar
+        time_bbox = meta_time_font.getbbox("Ag")
+        time_h = time_bbox[3] - time_bbox[1]
+        time_y = author_y + (AVATAR_SIZE - time_h) // 2
+        
+        draw.text((time_x, time_y), ts_str, font=meta_time_font, fill=SUBTLE)
 
     output = BytesIO()
     base_rgba.convert("RGB").save(output, format="PNG", optimize=True)

@@ -211,6 +211,18 @@ Fun:
 - `poll`
 - `quiz`
 
+`quote` renders a Make-it-a-Quote-style image card. With prefix commands, reply to a message and run:
+
+```text
+!quote
+```
+
+For slash commands or non-reply usage, pass a message ID from the same channel:
+
+```text
+/quote message_id:123456789012345678
+```
+
 Owner:
 
 - `owner`

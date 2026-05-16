@@ -11,6 +11,7 @@ from discord.ext import commands
 
 from phpelefant_discord.bot import PHPelefantBot
 from phpelefant_discord.utils.formatting import code_embed, embed, image_embed
+from phpelefant_discord.utils.quote_card import QuoteCardData, render_quote_card
 
 JOKES = [
     "Why do PHP developers like elephants? They never forget a semicolon.",
@@ -77,37 +78,29 @@ class Fun(commands.Cog):
             await ctx.send(embed=code_embed("Quote", random.choice(QUOTES)))
             return
 
-        description = quoted.content or "[no text content]"
-        item = embed("Quoted Message", description)
-        item.set_author(name=str(quoted.author), icon_url=quoted.author.display_avatar.url)
-        item.add_field(name="Author ID", value=str(quoted.author.id), inline=True)
-        item.add_field(name="Message ID", value=str(quoted.id), inline=True)
-        item.add_field(name="Jump", value=f"[Open message]({quoted.jump_url})", inline=False)
-        item.timestamp = quoted.created_at
+        quote_text = quoted.clean_content or quoted.content
+        if not quote_text and quoted.attachments:
+            quote_text = " ".join(f"[attachment: {attachment.filename}]" for attachment in quoted.attachments[:3])
+        if not quote_text and quoted.embeds:
+            quote_text = "[embed]"
+        if not quote_text:
+            quote_text = "[no text content]"
 
-        image_attachment = next(
-            (
-                attachment
-                for attachment in quoted.attachments
-                if attachment.content_type and attachment.content_type.startswith("image/")
-            ),
-            None,
-        )
-        if image_attachment:
-            file = await self.download_image_file(image_attachment.url, "quote")
-            if file:
-                item.set_image(url=f"attachment://{file.filename}")
-                await ctx.send(embed=item, file=file)
-                return
-            item.set_image(url=image_attachment.url)
-
-        if quoted.attachments:
-            item.add_field(
-                name="Attachments",
-                value="\n".join(f"[{attachment.filename}]({attachment.url})" for attachment in quoted.attachments[:5]),
-                inline=False,
+        avatar_bytes = await self.download_bytes(quoted.author.display_avatar.with_size(256).url)
+        card_bytes = render_quote_card(
+            QuoteCardData(
+                author_name=quoted.author.display_name,
+                author_handle=f"@{quoted.author} • {quoted.id}",
+                message=quote_text,
+                timestamp=quoted.created_at,
+                avatar_bytes=avatar_bytes,
             )
-        await ctx.send(embed=item)
+        )
+        file = discord.File(io.BytesIO(card_bytes), filename="quote.png")
+        item = embed("Quote")
+        item.set_image(url="attachment://quote.png")
+        item.add_field(name="Jump", value=f"[Open message]({quoted.jump_url})", inline=False)
+        await ctx.send(embed=item, file=file)
 
     @commands.hybrid_command(name="fact")
     async def fact(self, ctx: commands.Context) -> None:
@@ -267,6 +260,18 @@ class Fun(commands.Cog):
         extension = extension_from_content_type(content_type, extension_from_url(image_url))
         filename = f"{filename_prefix}{extension}"
         return discord.File(io.BytesIO(data), filename=filename)
+
+    async def download_bytes(self, url: str) -> bytes | None:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=15) as response:
+                    response.raise_for_status()
+                    data = await response.read()
+        except (aiohttp.ClientError, TimeoutError, ValueError):
+            return None
+        if not data or len(data) > IMAGE_SIZE_LIMIT:
+            return None
+        return data
 
     async def send_image_attachment_embed(
         self,

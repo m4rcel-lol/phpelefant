@@ -18,6 +18,14 @@ class Settings(BaseSettings):
     shell_working_directory: str = Field(".", alias="SHELL_WORKING_DIRECTORY")
     shell_timeout_seconds: int = Field(10, alias="SHELL_TIMEOUT_SECONDS")
     shell_output_limit: int = Field(3500, alias="SHELL_OUTPUT_LIMIT")
+    shell_extra_allowed_commands: str = Field(
+        "fastfetch,neofetch,free,vm_stat,sw_vers",
+        alias="SHELL_EXTRA_ALLOWED_COMMANDS",
+    )
+    root_shell_allowed_commands: str = Field(
+        "cat,df,du,fastfetch,free,grep,head,journalctl,ls,ps,rg,ss,stat,tail,uptime,wc",
+        alias="ROOT_SHELL_ALLOWED_COMMANDS",
+    )
     delete_service_messages: bool = Field(False, alias="DELETE_SERVICE_MESSAGES")
     default_language: str = Field("en", alias="DEFAULT_LANGUAGE")
     default_timezone: str = Field("UTC", alias="DEFAULT_TIMEZONE")

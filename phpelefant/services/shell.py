@@ -17,13 +17,16 @@ READ_ONLY_COMMANDS = {
     "date",
     "df",
     "du",
+    "fastfetch",
     "find",
+    "free",
     "grep",
     "head",
     "hostname",
     "id",
     "ls",
     "netstat",
+    "neofetch",
     "pgrep",
     "ps",
     "pwd",
@@ -31,13 +34,51 @@ READ_ONLY_COMMANDS = {
     "sed",
     "ss",
     "stat",
+    "sw_vers",
     "tail",
     "uname",
     "uptime",
+    "vm_stat",
     "wc",
     "whoami",
 }
 FORBIDDEN_TOKENS = {"|", "||", "&", "&&", ";", ">", ">>", "<", "<<", "`", "$(", "${"}
+FORBIDDEN_COMMANDS = {
+    "bash",
+    "chmod",
+    "chown",
+    "cp",
+    "curl",
+    "dd",
+    "doas",
+    "fish",
+    "kill",
+    "killall",
+    "mkfs",
+    "mkdir",
+    "mv",
+    "node",
+    "perl",
+    "php",
+    "pkexec",
+    "pkill",
+    "python",
+    "python3",
+    "reboot",
+    "rm",
+    "rmdir",
+    "ruby",
+    "service",
+    "sh",
+    "shutdown",
+    "sudo",
+    "systemctl",
+    "tee",
+    "touch",
+    "truncate",
+    "wget",
+    "zsh",
+}
 SECRET_ENV_KEYS = {"BOT_TOKEN", "DATABASE_URL"}
 FORBIDDEN_ARGS_BY_COMMAND = {
     "find": {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf"},
@@ -84,6 +125,22 @@ async def remove_shell_user(session: AsyncSession, user_id: int) -> None:
 
 
 def parse_shell_command(raw: str) -> list[str]:
+    return parse_command(raw, READ_ONLY_COMMANDS)
+
+
+def command_csv(value: str) -> set[str]:
+    return {item.strip() for item in value.split(",") if item.strip()}
+
+
+def allowed_user_commands(settings: Settings) -> set[str]:
+    return READ_ONLY_COMMANDS | command_csv(settings.shell_extra_allowed_commands)
+
+
+def allowed_root_commands(settings: Settings) -> set[str]:
+    return command_csv(settings.root_shell_allowed_commands)
+
+
+def parse_command(raw: str, allowed_commands: set[str]) -> list[str]:
     if not raw.strip():
         raise ValueError("Use /shell <read-only command>.")
     if any(token in raw for token in FORBIDDEN_TOKENS):
@@ -95,8 +152,10 @@ def parse_shell_command(raw: str) -> list[str]:
     if not argv:
         raise ValueError("Use /shell <read-only command>.")
     command = Path(argv[0]).name
-    if command not in READ_ONLY_COMMANDS:
-        allowed = ", ".join(sorted(READ_ONLY_COMMANDS))
+    if command in FORBIDDEN_COMMANDS:
+        raise ValueError("sudo/su/doas/pkexec are not available through /shell.")
+    if command not in allowed_commands:
+        allowed = ", ".join(sorted(allowed_commands))
         raise ValueError(f"Command is not allowed. Allowed commands: {allowed}")
     if argv[0] != command and "/" in argv[0]:
         raise ValueError("Use command names from PATH, not explicit filesystem paths.")
@@ -125,14 +184,22 @@ def redact_secrets(output: str, settings: Settings) -> str:
     return redacted
 
 
-async def run_restricted_shell(raw: str, settings: Settings) -> ShellResult:
-    argv = parse_shell_command(raw)
+def process_is_root() -> bool:
+    return hasattr(os, "geteuid") and os.geteuid() == 0
+
+
+async def run_restricted_shell(raw: str, settings: Settings, *, allow_root: bool = False, use_sudo: bool = False) -> ShellResult:
+    allowed = allowed_root_commands(settings) if use_sudo else allowed_user_commands(settings)
+    argv = parse_command(raw, allowed)
+    if process_is_root() and not allow_root:
+        raise ValueError("Refusing to run shell commands for non-owner users because the bot process is running as root.")
     cwd = Path(settings.shell_working_directory).expanduser().resolve()
     if not cwd.exists() or not cwd.is_dir():
         raise ValueError("Configured SHELL_WORKING_DIRECTORY does not exist or is not a directory.")
+    exec_argv = ["sudo", "-n", "--", *argv] if use_sudo else argv
     try:
         process = await asyncio.create_subprocess_exec(
-            *argv,
+            *exec_argv,
             cwd=str(cwd),
             env=sanitized_environment(),
             stdout=asyncio.subprocess.PIPE,

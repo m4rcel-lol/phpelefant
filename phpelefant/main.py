@@ -34,6 +34,7 @@ async def set_commands(bot: Bot) -> None:
         BotCommand(command="joke", description="Safe community joke"),
         BotCommand(command="ping", description="Check bot latency"),
         BotCommand(command="owner", description="Owner control panel"),
+        BotCommand(command="shell", description="Restricted shell command"),
     ]
     await bot.set_my_commands(commands)
 
@@ -75,4 +76,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-

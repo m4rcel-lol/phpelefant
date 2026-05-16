@@ -9,6 +9,10 @@ def test_parse_shell_command_allows_read_only_command() -> None:
     assert parse_shell_command("ls -la") == ["ls", "-la"]
 
 
+def test_parse_shell_command_allows_fastfetch() -> None:
+    assert parse_shell_command("fastfetch --version") == ["fastfetch", "--version"]
+
+
 @pytest.mark.parametrize("raw", ["rm -rf /tmp/x", "python -c 'print(1)'", "/bin/ls"])
 def test_parse_shell_command_rejects_unapproved_commands(raw: str) -> None:
     with pytest.raises(ValueError):
@@ -25,4 +29,3 @@ def test_parse_shell_command_rejects_shell_operators(raw: str) -> None:
 def test_parse_shell_command_rejects_write_capable_flags(raw: str) -> None:
     with pytest.raises(ValueError):
         parse_shell_command(raw)
-

@@ -27,7 +27,7 @@ router = Router(name="owner")
 async def _owner_only(message: Message, settings: Settings) -> bool:
     if message.from_user and message.from_user.id == settings.bot_owner_id:
         return True
-    await message.answer("Owner-only command.")
+    await message.answer(code_block("Owner-only command.", "text"))
     return False
 
 
@@ -48,6 +48,7 @@ async def owner_panel(message: Message, settings: Settings) -> None:
                 ("blacklist chat", "/blacklistchat <chat_id> <reason>"),
                 ("unblacklist chat", "/unblacklistchat <chat_id>"),
                 ("shell", "/shell <read-only command>"),
+                ("root shell", "/rootshell <read-only command>"),
                 ("shell users", "/shellusers add|remove|list"),
                 ("backup", "/backupdb"),
                 ("official channel", "/setofficialchannel <chat_id>"),
@@ -77,13 +78,13 @@ async def broadcast(message: Message, command: CommandObject, bot: Bot, session:
         return
     payload = command_args(command)
     if not payload:
-        await message.answer("Use /broadcast <message>.")
+        await message.answer(code_block("Use /broadcast <message>.", "text"))
         return
     targets = sorted(set(await known_chat_ids(session)) | set(await known_user_ids(session)))
     sent, failed = await _broadcast_to_targets(bot, targets, payload)
     session.add(BroadcastHistory(actor_user_id=message.from_user.id, target="all", message=payload, sent_count=sent, failed_count=failed))
     await log_action(session, message.chat.id, "owner_broadcast", None, message.from_user.id, f"{sent} sent, {failed} failed")
-    await message.answer(f"Broadcast complete. Sent: <code>{sent}</code>, failed: <code>{failed}</code>.")
+    await message.answer(panel("Broadcast complete", [("sent", sent), ("failed", failed)]))
 
 
 @router.message(Command("broadcastchannel"))
@@ -92,16 +93,16 @@ async def broadcastchannel(message: Message, command: CommandObject, bot: Bot, s
         return
     payload = command_args(command)
     if not payload:
-        await message.answer("Use /broadcastchannel <message>.")
+        await message.answer(code_block("Use /broadcastchannel <message>.", "text"))
         return
     try:
         await bot.send_message(settings.official_channel_id, payload)
     except Exception:
         session.add(BroadcastHistory(actor_user_id=message.from_user.id, target="official_channel", message=payload, sent_count=0, failed_count=1))
-        await message.answer("Failed to send to the official channel. Check bot channel permissions.")
+        await message.answer(code_block("Failed to send to the official channel. Check bot channel permissions.", "text"))
         return
     session.add(BroadcastHistory(actor_user_id=message.from_user.id, target="official_channel", message=payload, sent_count=1, failed_count=0))
-    await message.answer(f"Sent to official channel <code>{settings.official_channel_id}</code>.")
+    await message.answer(panel("Channel broadcast", [("sent to", settings.official_channel_id)]))
 
 
 @router.message(Command("statsglobal"))
@@ -136,14 +137,14 @@ async def leavechat(message: Message, command: CommandObject, bot: Bot, settings
     try:
         chat_id = int(command_args(command))
     except ValueError:
-        await message.answer("Use /leavechat <chat_id>.")
+        await message.answer(code_block("Use /leavechat <chat_id>.", "text"))
         return
     try:
         await bot.leave_chat(chat_id)
     except Exception:
-        await message.answer("Failed to leave that chat.")
+        await message.answer(code_block("Failed to leave that chat.", "text"))
         return
-    await message.answer(f"Left chat <code>{chat_id}</code>.")
+    await message.answer(panel("Leave chat", [("chat", chat_id), ("status", "left")]))
 
 
 @router.message(Command("blacklistuser"))
@@ -152,15 +153,15 @@ async def blacklistuser(message: Message, command: CommandObject, session: Async
         return
     parts = command_args(command).split(maxsplit=1)
     if len(parts) < 2:
-        await message.answer("Use /blacklistuser <user_id> <reason>.")
+        await message.answer(code_block("Use /blacklistuser <user_id> <reason>.", "text"))
         return
     try:
         user_id = int(parts[0])
     except ValueError:
-        await message.answer("User ID must be numeric.")
+        await message.answer(code_block("User ID must be numeric.", "text"))
         return
     if user_id == settings.bot_owner_id:
-        await message.answer("Refusing to blacklist the bot owner.")
+        await message.answer(code_block("Refusing to blacklist the bot owner.", "text"))
         return
     existing = await session.get(BlacklistedUser, user_id)
     if existing is None:
@@ -168,7 +169,7 @@ async def blacklistuser(message: Message, command: CommandObject, session: Async
     else:
         existing.reason = parts[1]
         existing.created_by = message.from_user.id
-    await message.answer(f"Blacklisted user <code>{user_id}</code>.")
+    await message.answer(panel("Blacklist user", [("user", user_id), ("status", "blacklisted")]))
 
 
 @router.message(Command("unblacklistuser"))
@@ -178,10 +179,10 @@ async def unblacklistuser(message: Message, command: CommandObject, session: Asy
     try:
         user_id = int(command_args(command))
     except ValueError:
-        await message.answer("Use /unblacklistuser <user_id>.")
+        await message.answer(code_block("Use /unblacklistuser <user_id>.", "text"))
         return
     await session.execute(delete(BlacklistedUser).where(BlacklistedUser.user_id == user_id))
-    await message.answer(f"Removed user <code>{user_id}</code> from blacklist if present.")
+    await message.answer(panel("Blacklist user", [("user", user_id), ("status", "removed if present")]))
 
 
 @router.message(Command("blacklistchat"))
@@ -190,12 +191,12 @@ async def blacklistchat(message: Message, command: CommandObject, session: Async
         return
     parts = command_args(command).split(maxsplit=1)
     if len(parts) < 2:
-        await message.answer("Use /blacklistchat <chat_id> <reason>.")
+        await message.answer(code_block("Use /blacklistchat <chat_id> <reason>.", "text"))
         return
     try:
         chat_id = int(parts[0])
     except ValueError:
-        await message.answer("Chat ID must be numeric.")
+        await message.answer(code_block("Chat ID must be numeric.", "text"))
         return
     existing = await session.get(BlacklistedChat, chat_id)
     if existing is None:
@@ -203,7 +204,7 @@ async def blacklistchat(message: Message, command: CommandObject, session: Async
     else:
         existing.reason = parts[1]
         existing.created_by = message.from_user.id
-    await message.answer(f"Blacklisted chat <code>{chat_id}</code>.")
+    await message.answer(panel("Blacklist chat", [("chat", chat_id), ("status", "blacklisted")]))
 
 
 @router.message(Command("unblacklistchat"))
@@ -213,10 +214,10 @@ async def unblacklistchat(message: Message, command: CommandObject, session: Asy
     try:
         chat_id = int(command_args(command))
     except ValueError:
-        await message.answer("Use /unblacklistchat <chat_id>.")
+        await message.answer(code_block("Use /unblacklistchat <chat_id>.", "text"))
         return
     await session.execute(delete(BlacklistedChat).where(BlacklistedChat.chat_id == chat_id))
-    await message.answer(f"Removed chat <code>{chat_id}</code> from blacklist if present.")
+    await message.answer(panel("Blacklist chat", [("chat", chat_id), ("status", "removed if present")]))
 
 
 @router.message(Command("eval"))
@@ -224,11 +225,11 @@ async def eval_command(message: Message, command: CommandObject, settings: Setti
     if not await _owner_only(message, settings):
         return
     if not settings.enable_eval:
-        await message.answer("Eval is disabled. Set ENABLE_EVAL=true only in a controlled developer environment.")
+        await message.answer(code_block("Eval is disabled. Set ENABLE_EVAL=true only in a controlled developer environment.", "text"))
         return
     expr = command_args(command)
     if len(expr) > 500:
-        await message.answer("Expression too long.")
+        await message.answer(code_block("Expression too long.", "text"))
         return
     result = eval(expr, {"__builtins__": {}}, {"time": time.time})  # noqa: S307
     await message.answer(code_block(str(result)[: settings.shell_output_limit], "text"))
@@ -238,32 +239,38 @@ async def eval_command(message: Message, command: CommandObject, settings: Setti
 async def shell_command(message: Message, command: CommandObject, session: AsyncSession, settings: Settings) -> None:
     if message.from_user is None:
         return
+    is_owner = message.from_user.id == settings.bot_owner_id
     if not await is_shell_allowed(session, message.from_user.id, settings):
-        await message.answer("Shell access denied.")
+        await message.answer(code_block("Shell access denied.", "text"))
         return
     raw = command_args(command)
     try:
-        result = await run_restricted_shell(raw, settings)
+        result = await run_restricted_shell(raw, settings, allow_root=is_owner)
     except ValueError as exc:
         await message.answer(panel("Shell rejected", [("reason", str(exc))]))
         return
-    output_parts = []
-    output_parts.append(f"$ {result.command}")
-    if result.timed_out:
-        output_parts.append(f"timed out after {settings.shell_timeout_seconds}s")
-    else:
-        output_parts.append(f"exit code: {result.return_code}")
-    if result.stdout:
-        output_parts.append("\n[stdout]\n" + result.stdout.rstrip())
-    if result.stderr:
-        output_parts.append("\n[stderr]\n" + result.stderr.rstrip())
-    if not result.stdout and not result.stderr:
-        output_parts.append("\n(no output)")
-    body, truncated = truncate_for_code_block("\n".join(output_parts), settings.shell_output_limit)
+    body, truncated = _render_shell_result(result, settings, sudo=False)
     await log_action(session, message.chat.id, "owner_shell", None, message.from_user.id, result.command)
-    await message.answer("<b>Shell output</b>\n" + code_block(body, "text"))
+    await message.answer(code_block(body, "text"))
     if truncated:
-        await message.answer("Output was truncated. Narrow the command or use head/tail.")
+        await message.answer(code_block("Output was truncated. Narrow the command or use head/tail.", "text"))
+
+
+@router.message(Command("rootshell"))
+async def root_shell_command(message: Message, command: CommandObject, session: AsyncSession, settings: Settings) -> None:
+    if not await _owner_only(message, settings):
+        return
+    raw = command_args(command)
+    try:
+        result = await run_restricted_shell(raw, settings, allow_root=True, use_sudo=True)
+    except ValueError as exc:
+        await message.answer(panel("Root shell rejected", [("reason", str(exc))]))
+        return
+    body, truncated = _render_shell_result(result, settings, sudo=True)
+    await log_action(session, message.chat.id, "owner_root_shell", None, message.from_user.id, result.command)
+    await message.answer(code_block(body, "text"))
+    if truncated:
+        await message.answer(code_block("Output was truncated. Narrow the command or use head/tail.", "text"))
 
 
 @router.message(Command("shellusers"))
@@ -280,12 +287,12 @@ async def shellusers(message: Message, command: CommandObject, session: AsyncSes
         await message.answer(panel("Shell allowed users", [(str(index), user_id) for index, user_id in enumerate(users, start=1)]))
         return
     if len(args) < 2:
-        await message.answer("Provide a numeric Telegram user ID.")
+        await message.answer(code_block("Provide a numeric Telegram user ID.", "text"))
         return
     try:
         user_id = int(args[1])
     except ValueError:
-        await message.answer("User ID must be numeric.")
+        await message.answer(code_block("User ID must be numeric.", "text"))
         return
     if action == "add":
         await add_shell_user(session, user_id, message.from_user.id, args[2] if len(args) > 2 else None)
@@ -293,11 +300,28 @@ async def shellusers(message: Message, command: CommandObject, session: AsyncSes
         await message.answer(panel("Shell allowlist updated", [("added", user_id)]))
         return
     if user_id == settings.bot_owner_id:
-        await message.answer("The owner always has shell access and cannot be removed.")
+        await message.answer(code_block("The owner always has shell access and cannot be removed.", "text"))
         return
     await remove_shell_user(session, user_id)
     await log_action(session, message.chat.id, "owner_shell_allow_remove", user_id, message.from_user.id, None)
     await message.answer(panel("Shell allowlist updated", [("removed", user_id)]))
+
+
+def _render_shell_result(result, settings: Settings, *, sudo: bool) -> tuple[str, bool]:
+    output_parts = [f"$ {'sudo -n -- ' if sudo else ''}{result.command}"]
+    if result.timed_out:
+        output_parts.append(f"timed out after {settings.shell_timeout_seconds}s")
+    else:
+        output_parts.append(f"exit code: {result.return_code}")
+    if sudo and result.return_code not in {0, None} and "password" in result.stderr.casefold():
+        output_parts.append("sudo password prompts are disabled; configure passwordless sudo for the bot OS user if owner root commands are required")
+    if result.stdout:
+        output_parts.append("\n[stdout]\n" + result.stdout.rstrip())
+    if result.stderr:
+        output_parts.append("\n[stderr]\n" + result.stderr.rstrip())
+    if not result.stdout and not result.stderr:
+        output_parts.append("\n(no output)")
+    return truncate_for_code_block("\n".join(output_parts), settings.shell_output_limit)
 
 
 @router.message(Command("restart"))
@@ -305,9 +329,9 @@ async def restart(message: Message, command: CommandObject, settings: Settings) 
     if not await _owner_only(message, settings):
         return
     if command_args(command) != "CONFIRM":
-        await message.answer("Use /restart CONFIRM to restart through the process supervisor.")
+        await message.answer(code_block("Use /restart CONFIRM to restart through the process supervisor.", "text"))
         return
-    await message.answer("Restart requested.")
+    await message.answer(code_block("Restart requested.", "text"))
     asyncio.get_running_loop().call_later(1, signal.raise_signal, signal.SIGTERM)
 
 
@@ -316,9 +340,9 @@ async def shutdown(message: Message, command: CommandObject, settings: Settings)
     if not await _owner_only(message, settings):
         return
     if command_args(command) != "CONFIRM":
-        await message.answer("Use /shutdown CONFIRM to stop the bot.")
+        await message.answer(code_block("Use /shutdown CONFIRM to stop the bot.", "text"))
         return
-    await message.answer("Shutdown requested.")
+    await message.answer(code_block("Shutdown requested.", "text"))
     asyncio.get_running_loop().call_later(1, signal.raise_signal, signal.SIGTERM)
 
 
@@ -338,7 +362,7 @@ async def setofficialchannel(message: Message, command: CommandObject, session: 
     try:
         channel_id = int(args) if args else settings.official_channel_id
     except ValueError:
-        await message.answer("Use /setofficialchannel <channel_id>.")
+        await message.answer(code_block("Use /setofficialchannel <channel_id>.", "text"))
         return
     await session.execute(update(ChatSettings).values(official_channel_id=channel_id))
-    await message.answer(f"Official channel set to <code>{channel_id}</code> for all configured groups.")
+    await message.answer(panel("Official channel", [("channel", channel_id), ("status", "updated for all groups")]))

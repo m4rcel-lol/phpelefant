@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from phpelefant_discord.db.base import Base
@@ -21,6 +22,27 @@ def make_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession
 async def init_database(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        await connection.run_sync(ensure_ticket_columns)
+
+
+def ensure_ticket_columns(connection) -> None:
+    inspector = inspect(connection)
+    table_names = set(inspector.get_table_names())
+    if "ticket_configs" in table_names:
+        existing = {column["name"] for column in inspector.get_columns("ticket_configs")}
+        if "ticket_categories" not in existing:
+            connection.execute(
+                text(
+                    "ALTER TABLE ticket_configs "
+                    "ADD COLUMN ticket_categories TEXT DEFAULT 'General Support|Billing|Bug Report|Staff Report|Appeal' NOT NULL"
+                )
+            )
+    if "tickets" in table_names:
+        existing = {column["name"] for column in inspector.get_columns("tickets")}
+        if "category" not in existing:
+            connection.execute(
+                text("ALTER TABLE tickets ADD COLUMN category VARCHAR(64) DEFAULT 'General Support' NOT NULL")
+            )
 
 
 @asynccontextmanager

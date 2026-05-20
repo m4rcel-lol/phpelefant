@@ -65,7 +65,7 @@ class Utility(commands.Cog):
             ),
             (
                 "Tickets",
-                "`ticket`, `ticket setup`, `ticket panel`, `ticket close`, `ticket claim`, `ticket add`, `ticket remove`, `ticket transcript`, `ticket settings`, `ticket enable`, `ticket disable`, `ticketsetup`",
+                "`ticket`, `ticket setup`, `ticket panel`, `ticket categories`, `ticket close`, `ticket claim`, `ticket add`, `ticket remove`, `ticket transcript`, `ticket settings`, `ticket enable`, `ticket disable`, `ticketsetup`",
             ),
             (
                 "Channel Editor",

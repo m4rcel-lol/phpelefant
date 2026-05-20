@@ -197,9 +197,10 @@ Options:
 Tickets:
 
 - `ticket <reason>` opens a private support ticket
-- `ticket setup [category] [log_channel] [staff_role]` configures the ticket system
+- `ticket setup [category] [log_channel] [staff_role]` configures the ticket system and uses the given staff role, or creates/reuses `Ticket Staff`
 - `ticketsetup [category] [log_channel] [staff_role]` is a direct setup shortcut
-- `ticket panel [channel] [description]` posts a persistent Open Ticket button panel
+- `ticket panel [channel] [description]` posts a persistent dropdown ticket panel
+- `ticket categories [cat1 | cat2 | cat3]` shows or replaces dropdown categories
 - `ticket close [reason]` closes the current ticket and saves a transcript
 - `ticket claim` marks the current ticket as claimed by staff
 - `ticket add <member>` adds a member to the current ticket
@@ -211,10 +212,13 @@ Tickets:
 
 Ticket behavior:
 
+- Ticket channels are named with the selected category, opener username, and ticket ID.
 - Ticket channels are private to the opener, the bot, and the configured staff role.
+- Ticket setup creates a `Ticket Staff` role when no role is supplied and the bot has Manage Roles.
 - Server admins, users with Manage Channels/Manage Guild/Moderate Members, and the bot owner count as ticket staff.
-- Panel buttons persist across bot restarts.
-- Closing a ticket posts the transcript to the configured log channel when available, then deletes the ticket channel.
+- Dropdown panels persist across bot restarts.
+- Opening a ticket pings the ticket staff role before posting the ticket intro embed.
+- Closing a ticket posts the transcript to the configured log channel, DMs the opener with a close summary and transcript, tries to DM the closing staff member with a transcript copy, then deletes the ticket channel.
 - One open ticket per user is enforced.
 
 Settings:

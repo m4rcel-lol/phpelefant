@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from phpelefant_discord.db.models import Ticket, TicketConfig
 
 CHANNEL_SAFE_RE = re.compile(r"[^a-z0-9-]+")
+DEFAULT_TICKET_CATEGORIES = ["General Support", "Billing", "Bug Report", "Staff Report", "Appeal"]
 
 
 async def get_or_create_ticket_config(session: AsyncSession, guild_id: int) -> TicketConfig:
@@ -49,8 +50,35 @@ def sanitize_channel_fragment(value: str, fallback: str = "user") -> str:
     return (normalized or fallback)[:32]
 
 
-def ticket_channel_name(number: int, member: discord.Member | discord.User) -> str:
-    return f"ticket-{number:04d}-{sanitize_channel_fragment(member.display_name)}"[:100]
+def parse_ticket_categories(value: str | None) -> list[str]:
+    raw_items = (value or "").replace("\n", "|").split("|")
+    categories: list[str] = []
+    for item in raw_items:
+        category = item.strip()
+        if not category:
+            continue
+        if category.casefold() in {seen.casefold() for seen in categories}:
+            continue
+        categories.append(category[:80])
+    return categories[:25] or DEFAULT_TICKET_CATEGORIES.copy()
+
+
+def serialize_ticket_categories(categories: list[str]) -> str:
+    values = []
+    seen: set[str] = set()
+    for category in categories:
+        normalized = category.strip()
+        if not normalized or normalized.casefold() in seen:
+            continue
+        values.append(normalized[:80])
+        seen.add(normalized.casefold())
+    return "|".join(values[:25] or DEFAULT_TICKET_CATEGORIES)
+
+
+def ticket_channel_name(category: str, number: int, member: discord.Member | discord.User) -> str:
+    category_part = sanitize_channel_fragment(category, "ticket")[:24]
+    user_part = sanitize_channel_fragment(member.display_name)[:28]
+    return f"{category_part}-{user_part}-{number:04d}"[:100]
 
 
 def utcnow() -> datetime:
@@ -63,6 +91,7 @@ async def build_ticket_transcript(channel: discord.TextChannel, ticket: Ticket, 
         f"Guild: {channel.guild.name} ({channel.guild.id})",
         f"Channel: #{channel.name} ({channel.id})",
         f"Ticket: #{ticket.ticket_number} / database id {ticket.id}",
+        f"Category: {ticket.category}",
         f"Opened by: {ticket.opener_id}",
         f"Claimed by: {ticket.claimed_by_id or 'unclaimed'}",
         f"Status: {ticket.status}",

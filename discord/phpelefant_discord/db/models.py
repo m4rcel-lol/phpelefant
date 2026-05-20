@@ -208,6 +208,11 @@ class TicketConfig(Base):
     staff_role_id: Mapped[int | None] = mapped_column(BigInteger)
     panel_channel_id: Mapped[int | None] = mapped_column(BigInteger)
     panel_message_id: Mapped[int | None] = mapped_column(BigInteger)
+    ticket_categories: Mapped[str] = mapped_column(
+        Text,
+        default="General Support|Billing|Bug Report|Staff Report|Appeal",
+        server_default="General Support|Billing|Bug Report|Staff Report|Appeal",
+    )
     ticket_counter: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     transcript_limit: Mapped[int] = mapped_column(Integer, default=300, server_default="300")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -225,6 +230,7 @@ class Ticket(Base):
     opener_id: Mapped[int] = mapped_column(BigInteger, index=True)
     claimed_by_id: Mapped[int | None] = mapped_column(BigInteger)
     closed_by_id: Mapped[int | None] = mapped_column(BigInteger)
+    category: Mapped[str] = mapped_column(String(64), default="General Support", server_default="General Support")
     status: Mapped[str] = mapped_column(String(16), default="open", server_default="open", index=True)
     subject: Mapped[str] = mapped_column(Text, default="No reason provided")
     close_reason: Mapped[str | None] = mapped_column(Text)

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from phpelefant_discord.config import Settings
 from phpelefant_discord.db.session import init_database, make_engine, make_session_factory
 from phpelefant_discord.utils.formatting import PHPelefantContext, decorate_embed, error_embed, infer_status
+from phpelefant_discord.utils.slash_descriptions import apply_slash_descriptions
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ class PHPelefantBot(commands.Bot):
             "phpelefant_discord.cogs.events",
         ):
             await self.load_extension(extension)
+        apply_slash_descriptions(self.tree)
         try:
             synced = await self.tree.sync()
             logger.info("Synced %s application commands", len(synced))

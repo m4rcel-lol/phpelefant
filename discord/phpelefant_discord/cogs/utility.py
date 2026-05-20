@@ -92,6 +92,7 @@ class Utility(commands.Cog):
             value=code_block(
                 f"{prefix}fakeban @member testing the moderation flow\n"
                 f"{prefix}ticket billing question\n"
+                f"{prefix}ticket setup 123456789012345678 #ticket-logs @Ticket Staff\n"
                 f"{prefix}ticket panel #support\n"
                 f"{prefix}mute @member 1h spam\n"
                 f"{prefix}quote <message_id>\n"

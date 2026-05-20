@@ -118,22 +118,22 @@ class Tickets(commands.Cog):
     async def ticketsetup(
         self,
         ctx: commands.Context,
-        category: discord.CategoryChannel | None = None,
+        category_id: str | None = None,
         log_channel: discord.TextChannel | None = None,
         staff_role: discord.Role | None = None,
     ) -> None:
-        await self.configure(ctx, category, log_channel, staff_role)
+        await self.configure(ctx, category_id, log_channel, staff_role)
 
     @ticket.command(name="setup")
     @owner_or_guild_permissions(manage_guild=True)
     async def ticket_setup(
         self,
         ctx: commands.Context,
-        category: discord.CategoryChannel | None = None,
+        category_id: str | None = None,
         log_channel: discord.TextChannel | None = None,
         staff_role: discord.Role | None = None,
     ) -> None:
-        await self.configure(ctx, category, log_channel, staff_role)
+        await self.configure(ctx, category_id, log_channel, staff_role)
 
     @ticket.command(name="panel")
     @owner_or_guild_permissions(manage_guild=True)
@@ -234,10 +234,14 @@ class Tickets(commands.Cog):
     async def configure(
         self,
         ctx: commands.Context,
-        category: discord.CategoryChannel | None,
+        category_id: str | None,
         log_channel: discord.TextChannel | None,
         staff_role: discord.Role | None,
     ) -> None:
+        category = self.resolve_category_by_id(ctx.guild, category_id)
+        if category_id is not None and category is None:
+            await ctx.send(embed=error_embed("Tickets", "Invalid category ID. Enable Developer Mode, copy the category ID, and pass that number."))
+            return
         resolved_staff_role = await self.resolve_or_create_staff_role(ctx, staff_role)
         if resolved_staff_role is None:
             return
@@ -250,6 +254,17 @@ class Tickets(commands.Cog):
             config.staff_role_id = resolved_staff_role.id
             await log_action(session, ctx.guild.id, "ticket_setup", None, ctx.author.id, None)
         await ctx.send(embed=self.settings_embed(ctx.guild, config, title="Ticket Setup Updated"))
+
+    def resolve_category_by_id(self, guild: discord.Guild, category_id: str | None) -> discord.CategoryChannel | None:
+        if category_id is None:
+            return None
+        value = category_id.strip()
+        if value.startswith("<#") and value.endswith(">"):
+            value = value[2:-1]
+        if not value.isdigit():
+            return None
+        channel = guild.get_channel(int(value))
+        return channel if isinstance(channel, discord.CategoryChannel) else None
 
     async def resolve_or_create_staff_role(self, ctx: commands.Context, staff_role: discord.Role | None) -> discord.Role | None:
         if staff_role is not None:

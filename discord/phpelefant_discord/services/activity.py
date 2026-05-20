@@ -30,6 +30,14 @@ class ActivitySnapshot:
     joined_at: datetime | None
 
 
+def as_aware_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
 async def ensure_member_activity(session: AsyncSession, guild_id: int, user_id: int) -> MemberActivity:
     row = await session.scalar(select(MemberActivity).where(MemberActivity.guild_id == guild_id, MemberActivity.user_id == user_id))
     if row is not None:
@@ -50,7 +58,8 @@ async def record_message(session: AsyncSession, guild_id: int, user_id: int, xp_
     row = await ensure_member_activity(session, guild_id, user_id)
     row.message_count += 1
     row.last_message_at = now
-    award = row.last_xp_at is None or now - row.last_xp_at >= timedelta(seconds=xp_cooldown_seconds)
+    last_xp_at = as_aware_utc(row.last_xp_at)
+    award = last_xp_at is None or now - last_xp_at >= timedelta(seconds=xp_cooldown_seconds)
     gained = XP_PER_MESSAGE if award else 0
     if gained:
         row.xp += gained
@@ -65,12 +74,12 @@ async def record_message(session: AsyncSession, guild_id: int, user_id: int, xp_
         await session.flush()
     daily.message_count += 1
     daily.xp += gained
-    return ActivitySnapshot(row.message_count, row.xp, row.level, row.joined_at)
+    return ActivitySnapshot(row.message_count, row.xp, row.level, as_aware_utc(row.joined_at))
 
 
 async def get_activity(session: AsyncSession, guild_id: int, user_id: int) -> ActivitySnapshot:
     row = await ensure_member_activity(session, guild_id, user_id)
-    return ActivitySnapshot(row.message_count, row.xp, row.level, row.joined_at)
+    return ActivitySnapshot(row.message_count, row.xp, row.level, as_aware_utc(row.joined_at))
 
 
 async def leaderboard(session: AsyncSession, guild_id: int, limit: int = 10) -> list[MemberActivity]:
@@ -91,4 +100,3 @@ async def activity_since(session: AsyncSession, guild_id: int, start_day: date, 
         .limit(limit)
     )
     return [(int(row[0]), int(row[1])) for row in result]
-

@@ -25,15 +25,16 @@ class Events(commands.Cog):
         self.memory = SpamMemory()
 
     async def bot_check_once(self, ctx: commands.Context) -> bool:
+        is_owner = ctx.author.id == self.bot.settings.bot_owner_id
         async with session_scope(self.bot.session_factory) as session:
-            if await session.get(BlacklistedUser, ctx.author.id):
+            if not is_owner and await session.get(BlacklistedUser, ctx.author.id):
                 await ctx.send(embed=code_embed("Blocked", "You are blocked from using PHPelefant."))
                 return False
-            if ctx.guild and await session.get(BlacklistedGuild, ctx.guild.id):
+            if not is_owner and ctx.guild and await session.get(BlacklistedGuild, ctx.guild.id):
                 return False
             if ctx.guild and ctx.command and ctx.command.cog_name in {"Fun", "Activity"}:
                 settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
-                if settings.force_subscribe_enabled and ctx.author.id != self.bot.settings.bot_owner_id:
+                if settings.force_subscribe_enabled and not is_owner:
                     official_guild = self.bot.get_guild(settings.official_channel_id)
                     if official_guild is None:
                         await ctx.send(embed=code_embed("Force Subscribe", "Official server is not available to the bot."))

@@ -38,6 +38,7 @@ class PHPelefantBot(commands.Bot):
             "phpelefant_discord.cogs.utility",
             "phpelefant_discord.cogs.moderation",
             "phpelefant_discord.cogs.channel_edit",
+            "phpelefant_discord.cogs.tickets",
             "phpelefant_discord.cogs.settings",
             "phpelefant_discord.cogs.welcome",
             "phpelefant_discord.cogs.activity",

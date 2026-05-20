@@ -57,8 +57,6 @@ def guild_permissions_or_owner(**permissions: bool):
 
 
 def can_moderate(ctx: commands.Context, member: discord.Member) -> tuple[bool, str]:
-    if member.id == ctx.bot.settings.bot_owner_id:
-        return False, "Cannot moderate the bot owner."
     if member.id == ctx.author.id:
         return False, "Cannot moderate yourself."
     if is_owner_id(ctx.bot, ctx.author.id):
@@ -73,8 +71,6 @@ def can_moderate(ctx: commands.Context, member: discord.Member) -> tuple[bool, s
 
 
 def can_fakeban(ctx: commands.Context, member: discord.Member) -> tuple[bool, str]:
-    if member.id == ctx.bot.settings.bot_owner_id:
-        return False, "Cannot fakeban the bot owner."
     if member.id == ctx.author.id:
         return False, "Cannot fakeban yourself."
     if not is_staff_context(ctx):

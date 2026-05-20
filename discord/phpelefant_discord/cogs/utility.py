@@ -64,6 +64,10 @@ class Utility(commands.Cog):
                 "`rules`, `setrules`, `settings`, `setlogchannel`, `setwarnlimit`, `antispam`, `antilink`, `anticaps`, `badwords`, `whitelist`, `forcesub`, `forcesubstatus`",
             ),
             (
+                "Tickets",
+                "`ticket`, `ticket setup`, `ticket panel`, `ticket close`, `ticket claim`, `ticket add`, `ticket remove`, `ticket transcript`, `ticket settings`, `ticket enable`, `ticket disable`, `ticketsetup`",
+            ),
+            (
                 "Channel Editor",
                 "`/edit type:channels deletechars:true deletetoindex:3 keepemojis:true surroundsymbol1:【 surroundsymbol2:】`\n"
                 f"`{prefix}edit type:channels deletechars:true deletetoindex:3 keepemojis:true surroundsymbol1:【 sourroundsymbol2:】`",
@@ -87,6 +91,8 @@ class Utility(commands.Cog):
             name="Examples",
             value=code_block(
                 f"{prefix}fakeban @member testing the moderation flow\n"
+                f"{prefix}ticket billing question\n"
+                f"{prefix}ticket panel #support\n"
                 f"{prefix}mute @member 1h spam\n"
                 f"{prefix}quote <message_id>\n"
                 f"{prefix}edit type:channels deletechars:true deletetoindex:3 keepemojis:true preview:true",

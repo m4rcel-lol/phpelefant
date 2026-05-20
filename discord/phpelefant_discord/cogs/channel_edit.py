@@ -127,10 +127,11 @@ class ChannelEdit(commands.Cog):
         if me is None or not me.guild_permissions.manage_channels:
             await self.send(ctx, error_embed("Channel Editor", "PHPelefant needs Manage Channels permission."), use_followup)
             return
-        async with session_scope(self.bot.session_factory) as session:
-            if await session.get(BlacklistedUser, author.id) or await session.get(BlacklistedGuild, ctx.guild.id):
-                await self.send(ctx, error_embed("Channel Editor", "This user or server is blocked from using PHPelefant."), use_followup)
-                return
+        if not is_owner(self.bot, author.id):
+            async with session_scope(self.bot.session_factory) as session:
+                if await session.get(BlacklistedUser, author.id) or await session.get(BlacklistedGuild, ctx.guild.id):
+                    await self.send(ctx, error_embed("Channel Editor", "This user or server is blocked from using PHPelefant."), use_followup)
+                    return
 
         raw_targets = manageable_channel_targets(ctx.guild, options.target_type)
         targets = [

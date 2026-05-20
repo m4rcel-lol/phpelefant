@@ -173,12 +173,14 @@ class Owner(commands.Cog):
         await ctx.send(embed=code_embed("Shell Users", "\n".join(str(user_id) for user_id in users) or "No shell users."))
 
     @shellusers.command(name="add")
+    @owner_only()
     async def shellusers_add(self, ctx: commands.Context, user_id: int, *, note: str = "trusted") -> None:
         async with session_scope(self.bot.session_factory) as session:
             await add_shell_user(session, user_id, ctx.author.id, note)
         await ctx.send(embed=success_embed("Shell Users", f"Added shell user `{user_id}`."))
 
     @shellusers.command(name="remove")
+    @owner_only()
     async def shellusers_remove(self, ctx: commands.Context, user_id: int) -> None:
         if user_id == self.bot.settings.bot_owner_id:
             await ctx.send(embed=error_embed("Shell Users", "Owner always has shell access."))

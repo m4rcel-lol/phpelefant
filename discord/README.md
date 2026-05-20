@@ -26,6 +26,7 @@ discord/
       moderation.py
       owner.py
       settings.py
+      tickets.py
       utility.py
       welcome.py
     db/
@@ -192,6 +193,29 @@ Options:
 - `match`: optional substring filter
 - `limit`: max targets, 1-100
 - `preview`: `true` to show a dry run
+
+Tickets:
+
+- `ticket <reason>` opens a private support ticket
+- `ticket setup [category] [log_channel] [staff_role]` configures the ticket system
+- `ticketsetup [category] [log_channel] [staff_role]` is a direct setup shortcut
+- `ticket panel [channel] [description]` posts a persistent Open Ticket button panel
+- `ticket close [reason]` closes the current ticket and saves a transcript
+- `ticket claim` marks the current ticket as claimed by staff
+- `ticket add <member>` adds a member to the current ticket
+- `ticket remove <member>` removes a member from the current ticket
+- `ticket transcript` exports a transcript without closing
+- `ticket settings` shows current ticket settings
+- `ticket enable`
+- `ticket disable`
+
+Ticket behavior:
+
+- Ticket channels are private to the opener, the bot, and the configured staff role.
+- Server admins, users with Manage Channels/Manage Guild/Moderate Members, and the bot owner count as ticket staff.
+- Panel buttons persist across bot restarts.
+- Closing a ticket posts the transcript to the configured log channel when available, then deletes the ticket channel.
+- One open ticket per user is enforced.
 
 Settings:
 

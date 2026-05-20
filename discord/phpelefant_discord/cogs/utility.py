@@ -9,7 +9,7 @@ from phpelefant_discord.bot import PHPelefantBot
 from phpelefant_discord.db.session import session_scope
 from phpelefant_discord.services.settings import get_or_create_guild_settings
 from phpelefant_discord.services.stats import global_counts
-from phpelefant_discord.utils.formatting import code_embed, table_embed
+from phpelefant_discord.utils.formatting import code_block, code_embed, embed, table_embed
 
 STARTED_AT = time.monotonic()
 
@@ -28,30 +28,72 @@ class Utility(commands.Cog):
 
     @commands.hybrid_command(name="start", aliases=["about"])
     async def start(self, ctx: commands.Context) -> None:
-        await ctx.send(
-            embed=table_embed(
-                "PHPelefant",
-                [
-                    ("purpose", "moderation, activities, and fun community tools"),
-                    ("official server", self.bot.settings.official_server_id or "not configured"),
-                    ("prefix", self.bot.settings.command_prefix),
-                ],
-            )
+        item = embed(
+            "PHPelefant",
+            "Advanced community management for moderation, activity, server utilities, engagement, and owner operations.",
         )
+        if self.bot.user:
+            item.set_thumbnail(url=self.bot.user.display_avatar.url)
+        item.add_field(name="Command Access", value=f"Slash commands and prefix `{self.bot.settings.command_prefix}`", inline=True)
+        item.add_field(name="Official Server", value=str(self.bot.settings.official_server_id or "not configured"), inline=True)
+        item.add_field(name="Owner ID", value=str(self.bot.settings.bot_owner_id), inline=True)
+        item.add_field(
+            name="Core Systems",
+            value="Moderation logs, anti-spam, XP/levels, welcome/goodbye, fun media, shell controls, and channel editing.",
+            inline=False,
+        )
+        await ctx.send(embed=item)
 
     @commands.hybrid_command(name="help")
     async def help_command(self, ctx: commands.Context) -> None:
-        await ctx.send(
-            embed=code_embed(
-                "Help",
-                "Moderation: ban unban kick mute unmute warn warnings resetwarnings purge delete lock unlock slowmode rules setrules pin unpin report adminlist\n"
-                "Settings: settings setlogchannel setwarnlimit antispam antilink anticaps badwords whitelist forcesub\n"
-                "Welcome: setwelcome welcome setgoodbye goodbye\n"
-                "Activity: rank level xp leaderboard top activity profile\n"
-                "Fun: joke meme quote fact 8ball coinflip dice roll ship roast compliment hug slap cat dog httpcat httpdog choose rate avatar poll quiz\n"
-                "Owner: owner broadcast broadcastchannel statsglobal leaveguild blacklistuser unblacklistuser blacklistguild unblacklistguild shell shellusers backupdb shutdown"
-            )
+        prefix = self.bot.settings.command_prefix
+        item = embed(
+            "PHPelefant Command Directory",
+            f"Use slash commands or prefix commands with `{prefix}`. Staff commands require Discord permissions; owner commands require your configured owner ID.",
         )
+        if self.bot.user:
+            item.set_thumbnail(url=self.bot.user.display_avatar.url)
+
+        sections = [
+            (
+                "Moderation",
+                "`ban`, `fakeban`, `unban`, `kick`, `mute`, `unmute`, `warn`, `warnings`, `resetwarnings`, `warnconfig`, `modlogs`, `purge`, `delete`, `lock`, `unlock`, `slowmode`, `pin`, `unpin`, `nick`, `addrole`, `removerole`",
+            ),
+            (
+                "Server Setup",
+                "`rules`, `setrules`, `settings`, `setlogchannel`, `setwarnlimit`, `antispam`, `antilink`, `anticaps`, `badwords`, `whitelist`, `forcesub`, `forcesubstatus`",
+            ),
+            (
+                "Channel Editor",
+                "`/edit type:channels deletechars:true deletetoindex:3 keepemojis:true surroundsymbol1:【 surroundsymbol2:】`\n"
+                f"`{prefix}edit type:channels deletechars:true deletetoindex:3 keepemojis:true surroundsymbol1:【 sourroundsymbol2:】`",
+            ),
+            (
+                "Welcome And Activity",
+                "`setwelcome`, `welcome`, `setgoodbye`, `goodbye`, `rank`, `level`, `xp`, `leaderboard`, `top`, `activity`, `profile`",
+            ),
+            (
+                "Fun And Media",
+                "`joke`, `meme`, `quote`, `fact`, `8ball`, `coinflip`, `dice`, `roll`, `ship`, `roast`, `compliment`, `hug`, `slap`, `cat`, `dog`, `httpcat`, `httpdog`, `choose`, `rate`, `avatar`, `poll`, `quiz`",
+            ),
+            (
+                "Owner Console",
+                "`owner`, `broadcast`, `broadcastchannel`, `statsglobal`, `leaveguild`, `blacklistuser`, `unblacklistuser`, `blacklistguild`, `unblacklistguild`, `shell`, `shellusers`, `backupdb`, `restart`, `shutdown`",
+            ),
+        ]
+        for name, value in sections:
+            item.add_field(name=name, value=value[:1024], inline=False)
+        item.add_field(
+            name="Examples",
+            value=code_block(
+                f"{prefix}fakeban @member testing the moderation flow\n"
+                f"{prefix}mute @member 1h spam\n"
+                f"{prefix}quote <message_id>\n"
+                f"{prefix}edit type:channels deletechars:true deletetoindex:3 keepemojis:true preview:true",
+            ),
+            inline=False,
+        )
+        await ctx.send(embed=item)
 
     @commands.hybrid_command(name="id")
     async def id_command(self, ctx: commands.Context, member: discord.Member | None = None) -> None:

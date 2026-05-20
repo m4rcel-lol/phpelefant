@@ -14,7 +14,7 @@ from phpelefant_discord.services.antispam import AutoAction, SpamMemory, analyze
 from phpelefant_discord.services.moderation import add_warning, log_action
 from phpelefant_discord.services.settings import get_or_create_guild_settings, upsert_guild, upsert_user
 from phpelefant_discord.services.stats import increment_stat
-from phpelefant_discord.utils.formatting import code_block, code_embed
+from phpelefant_discord.utils.formatting import code_embed, error_embed
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,40 @@ class Events(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         logger.info("Logged in as %s (%s)", self.bot.user, self.bot.user.id if self.bot.user else "unknown")
+
+    @commands.Cog.listener()
+    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError) -> None:
+        if isinstance(error, commands.CommandNotFound):
+            return
+        if ctx.command and ctx.command.has_error_handler():
+            return
+        original = getattr(error, "original", error)
+        title = "Command Error"
+        message = "PHPelefant could not run that command."
+        if isinstance(original, commands.MissingPermissions):
+            message = "You do not have the required Discord permissions."
+        elif isinstance(original, commands.BotMissingPermissions):
+            message = "PHPelefant is missing required Discord permissions."
+        elif isinstance(original, commands.MissingRequiredArgument):
+            message = f"Missing required argument: `{original.param.name}`."
+        elif isinstance(original, commands.BadArgument):
+            message = "Invalid argument. Check the command format and try again."
+        elif isinstance(original, commands.CheckFailure):
+            message = "You are not allowed to use that command."
+        elif isinstance(original, discord.Forbidden):
+            message = "Discord rejected this because PHPelefant lacks permission or role position."
+        elif isinstance(original, discord.HTTPException):
+            message = "Discord rejected the request. Try again after checking permissions and arguments."
+        else:
+            logger.error(
+                "Unhandled command error in %s",
+                ctx.command,
+                exc_info=(type(original), original, original.__traceback__) if isinstance(original, BaseException) else None,
+            )
+        try:
+            await ctx.send(embed=error_embed(title, message))
+        except discord.DiscordException:
+            logger.exception("Failed to send command error response")
 
     @commands.Cog.listener()
     async def on_guild_join(self, guild: discord.Guild) -> None:

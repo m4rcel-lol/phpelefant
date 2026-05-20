@@ -20,6 +20,7 @@ discord/
     main.py
     cogs/
       activity.py
+      channel_edit.py
       events.py
       fun.py
       moderation.py
@@ -38,7 +39,9 @@ discord/
       shell.py
       stats.py
     utils/
+      channel_names.py
       formatting.py
+      permissions.py
       text.py
       time.py
 ```
@@ -63,6 +66,8 @@ Recommended bot permissions:
 - Kick Members
 - Manage Channels
 - Manage Guild
+- Manage Nicknames
+- Manage Roles
 - Read Message History
 - Send Messages
 - Embed Links
@@ -138,6 +143,7 @@ Utility:
 Moderation:
 
 - `ban`
+- `fakeban`
 - `unban`
 - `kick`
 - `mute`
@@ -145,6 +151,8 @@ Moderation:
 - `warn`
 - `warnings`
 - `resetwarnings`
+- `warnconfig`
+- `modlogs`
 - `purge`
 - `delete`
 - `lock`
@@ -156,6 +164,34 @@ Moderation:
 - `unpin`
 - `report`
 - `adminlist`
+- `nick`
+- `addrole`
+- `removerole`
+
+Channel/category bulk editor:
+
+- Slash command:
+
+```text
+/edit type:channels deletechars:true deletetoindex:3 keepemojis:true surroundsymbol1:【 surroundsymbol2:】
+```
+
+- Prefix command:
+
+```text
+!edit type:channels deletechars:true deletetoindex:3 keepemojis:true surroundsymbol1:【 sourroundsymbol2:】
+```
+
+Options:
+
+- `type`: `channels`, `categories`, `all`, `text`, `voice`, `stage`, or `forum`
+- `deletechars`: `true` or `false`
+- `deletetoindex`: number of characters removed after preserved leading emojis
+- `keepemojis`: preserves leading unicode/custom emojis before deleting characters
+- `surroundsymbol1` and `surroundsymbol2`: wrap the final name
+- `match`: optional substring filter
+- `limit`: max targets, 1-100
+- `preview`: `true` to show a dry run
 
 Settings:
 
@@ -237,7 +273,9 @@ Owner:
 - `shell`
 - `shellusers`
 - `eval`
+- `backupdb`
 - `setofficialserver`
+- `restart`
 - `shutdown`
 
 ## Verification

@@ -17,7 +17,7 @@ from phpelefant_discord.services.moderation import log_action
 from phpelefant_discord.services.settings import known_guild_ids, known_user_ids
 from phpelefant_discord.services.shell import add_shell_user, is_shell_allowed, list_shell_users, remove_shell_user, run_real_shell
 from phpelefant_discord.services.stats import global_counts
-from phpelefant_discord.utils.formatting import code_block, table_embed, truncate
+from phpelefant_discord.utils.formatting import code_embed, error_embed, success_embed, table_embed, truncate
 from phpelefant_discord.cogs.utility import uptime_text
 
 
@@ -81,10 +81,10 @@ class Owner(commands.Cog):
         guild = self.bot.get_guild(self.bot.settings.official_server_id)
         channel = guild.system_channel if guild else None
         if not isinstance(channel, discord.abc.Messageable):
-            await ctx.send(code_block("Official server system channel is not configured or not cached."))
+            await ctx.send(embed=error_embed("Broadcast", "Official server system channel is not configured or not cached."))
             return
         await channel.send(message)
-        await ctx.send(code_block("Sent to official server system channel."))
+        await ctx.send(embed=success_embed("Broadcast", "Sent to official server system channel."))
 
     @commands.hybrid_command(name="statsglobal")
     @owner_only()
@@ -103,16 +103,16 @@ class Owner(commands.Cog):
     async def leaveguild(self, ctx: commands.Context, guild_id: int) -> None:
         guild = self.bot.get_guild(guild_id)
         if guild is None:
-            await ctx.send(code_block("Guild not found."))
+            await ctx.send(embed=error_embed("Leave Guild", "Guild not found."))
             return
         await guild.leave()
-        await ctx.send(code_block(f"Left guild {guild_id}."))
+        await ctx.send(embed=success_embed("Leave Guild", f"Left guild `{guild_id}`."))
 
     @commands.hybrid_command(name="blacklistuser")
     @owner_only()
     async def blacklistuser(self, ctx: commands.Context, user_id: int, *, reason: str) -> None:
         if user_id == self.bot.settings.bot_owner_id:
-            await ctx.send(code_block("Refusing to blacklist owner."))
+            await ctx.send(embed=error_embed("Blacklist User", "Refusing to blacklist owner."))
             return
         async with session_scope(self.bot.session_factory) as session:
             row = await session.get(BlacklistedUser, user_id)
@@ -120,14 +120,14 @@ class Owner(commands.Cog):
                 session.add(BlacklistedUser(user_id=user_id, reason=reason, created_by=ctx.author.id))
             else:
                 row.reason = reason
-        await ctx.send(code_block(f"Blacklisted user {user_id}."))
+        await ctx.send(embed=success_embed("Blacklist User", f"Blacklisted user `{user_id}`."))
 
     @commands.hybrid_command(name="unblacklistuser")
     @owner_only()
     async def unblacklistuser(self, ctx: commands.Context, user_id: int) -> None:
         async with session_scope(self.bot.session_factory) as session:
             await session.execute(delete(BlacklistedUser).where(BlacklistedUser.user_id == user_id))
-        await ctx.send(code_block("Removed if present."))
+        await ctx.send(embed=success_embed("Unblacklist User", "Removed if present."))
 
     @commands.hybrid_command(name="blacklistguild")
     @owner_only()
@@ -138,80 +138,80 @@ class Owner(commands.Cog):
                 session.add(BlacklistedGuild(guild_id=guild_id, reason=reason, created_by=ctx.author.id))
             else:
                 row.reason = reason
-        await ctx.send(code_block(f"Blacklisted guild {guild_id}."))
+        await ctx.send(embed=success_embed("Blacklist Guild", f"Blacklisted guild `{guild_id}`."))
 
     @commands.hybrid_command(name="unblacklistguild")
     @owner_only()
     async def unblacklistguild(self, ctx: commands.Context, guild_id: int) -> None:
         async with session_scope(self.bot.session_factory) as session:
             await session.execute(delete(BlacklistedGuild).where(BlacklistedGuild.guild_id == guild_id))
-        await ctx.send(code_block("Removed if present."))
+        await ctx.send(embed=success_embed("Unblacklist Guild", "Removed if present."))
 
     @commands.hybrid_command(name="shell")
     async def shell(self, ctx: commands.Context, *, command: str) -> None:
         async with session_scope(self.bot.session_factory) as session:
             if not await is_shell_allowed(session, ctx.author.id, self.bot.settings):
-                await ctx.send(code_block("Shell access denied."))
+                await ctx.send(embed=error_embed("Shell", "Shell access denied."))
                 return
             try:
                 result = await run_real_shell(command, self.bot.settings)
             except ValueError as exc:
-                await ctx.send(code_block(f"Shell rejected: {exc}"))
+                await ctx.send(embed=error_embed("Shell", f"Shell rejected: {exc}"))
                 return
             await log_action(session, ctx.guild.id if ctx.guild else 0, "owner_shell", None, ctx.author.id, result.command)
         body = self.render_shell_result(result)
         output, truncated = truncate(body, self.bot.settings.shell_output_limit)
-        await ctx.send(code_block(output))
+        await ctx.send(embed=code_embed("Shell", output, "bash", status="owner"))
         if truncated:
-            await ctx.send(code_block("Output truncated."))
+            await ctx.send(embed=code_embed("Shell", "Output truncated.", status="warning"))
 
     @commands.hybrid_group(name="shellusers", fallback="list")
     @owner_only()
     async def shellusers(self, ctx: commands.Context) -> None:
         async with session_scope(self.bot.session_factory) as session:
             users = await list_shell_users(session, self.bot.settings)
-        await ctx.send(code_block("\n".join(str(user_id) for user_id in users)))
+        await ctx.send(embed=code_embed("Shell Users", "\n".join(str(user_id) for user_id in users) or "No shell users."))
 
     @shellusers.command(name="add")
     async def shellusers_add(self, ctx: commands.Context, user_id: int, *, note: str = "trusted") -> None:
         async with session_scope(self.bot.session_factory) as session:
             await add_shell_user(session, user_id, ctx.author.id, note)
-        await ctx.send(code_block(f"Added shell user {user_id}."))
+        await ctx.send(embed=success_embed("Shell Users", f"Added shell user `{user_id}`."))
 
     @shellusers.command(name="remove")
     async def shellusers_remove(self, ctx: commands.Context, user_id: int) -> None:
         if user_id == self.bot.settings.bot_owner_id:
-            await ctx.send(code_block("Owner always has shell access."))
+            await ctx.send(embed=error_embed("Shell Users", "Owner always has shell access."))
             return
         async with session_scope(self.bot.session_factory) as session:
             await remove_shell_user(session, user_id)
-        await ctx.send(code_block(f"Removed shell user {user_id} if present."))
+        await ctx.send(embed=success_embed("Shell Users", f"Removed shell user `{user_id}` if present."))
 
     @commands.hybrid_command(name="eval")
     @owner_only()
     async def eval_command(self, ctx: commands.Context, *, expr: str) -> None:
         if not self.bot.settings.enable_eval:
-            await ctx.send(code_block("Eval disabled."))
+            await ctx.send(embed=error_embed("Eval", "Eval disabled."))
             return
         result = eval(expr, {"__builtins__": {}}, {"time": time.time})  # noqa: S307
-        await ctx.send(code_block(str(result)))
+        await ctx.send(embed=code_embed("Eval", str(result), status="owner"))
 
     @commands.hybrid_command(name="shutdown")
     @owner_only()
     async def shutdown(self, ctx: commands.Context, confirm: str = "") -> None:
         if confirm != "CONFIRM":
-            await ctx.send(code_block("Use shutdown CONFIRM."))
+            await ctx.send(embed=error_embed("Shutdown", "Use `shutdown CONFIRM`."))
             return
-        await ctx.send(code_block("Shutdown requested."))
+        await ctx.send(embed=success_embed("Shutdown", "Shutdown requested."))
         asyncio.get_running_loop().call_later(1, signal.raise_signal, signal.SIGTERM)
 
     @commands.hybrid_command(name="restart")
     @owner_only()
     async def restart(self, ctx: commands.Context, confirm: str = "") -> None:
         if confirm != "CONFIRM":
-            await ctx.send(code_block("Use restart CONFIRM."))
+            await ctx.send(embed=error_embed("Restart", "Use `restart CONFIRM`."))
             return
-        await ctx.send(code_block("Restart requested."))
+        await ctx.send(embed=success_embed("Restart", "Restart requested."))
         asyncio.get_running_loop().call_later(1, signal.raise_signal, signal.SIGTERM)
 
     @commands.hybrid_command(name="backupdb")
@@ -219,14 +219,14 @@ class Owner(commands.Cog):
     async def backupdb(self, ctx: commands.Context) -> None:
         async with session_scope(self.bot.session_factory) as session:
             payload = await export_database_json(session)
-        await ctx.send(file=discord.File(fp=io.BytesIO(payload), filename="phpelefant-discord-backup.json"))
+        await ctx.send(embed=success_embed("Database Backup", "Backup created."), file=discord.File(fp=io.BytesIO(payload), filename="phpelefant-discord-backup.json"))
 
     @commands.hybrid_command(name="setofficialserver", aliases=["setofficialchannel"])
     @owner_only()
     async def setofficialserver(self, ctx: commands.Context, server_id: int) -> None:
         async with session_scope(self.bot.session_factory) as session:
             await session.execute(update(GuildSettings).values(official_channel_id=server_id))
-        await ctx.send(code_block(f"Official server set to {server_id} for all configured guilds."))
+        await ctx.send(embed=success_embed("Official Server", f"Official server set to `{server_id}` for all configured guilds."))
 
     @staticmethod
     def render_shell_result(result) -> str:

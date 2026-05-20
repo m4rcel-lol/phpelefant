@@ -6,6 +6,7 @@ from phpelefant_discord.bot import PHPelefantBot
 from phpelefant_discord.db.session import session_scope
 from phpelefant_discord.services.settings import get_or_create_guild_settings
 from phpelefant_discord.utils.formatting import code_embed
+from phpelefant_discord.utils.permissions import owner_or_guild_permissions
 
 
 class Welcome(commands.Cog):
@@ -14,7 +15,7 @@ class Welcome(commands.Cog):
 
     @commands.hybrid_command(name="setwelcome")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setwelcome(self, ctx: commands.Context, *, text: str) -> None:
         async with session_scope(self.bot.session_factory) as session:
             settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
@@ -23,7 +24,7 @@ class Welcome(commands.Cog):
 
     @commands.hybrid_command(name="welcome")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def welcome(self, ctx: commands.Context, value: str) -> None:
         enabled = value.casefold() == "on"
         if value.casefold() not in {"on", "off"}:
@@ -36,7 +37,7 @@ class Welcome(commands.Cog):
 
     @commands.hybrid_command(name="setgoodbye")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setgoodbye(self, ctx: commands.Context, *, text: str) -> None:
         async with session_scope(self.bot.session_factory) as session:
             settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
@@ -45,7 +46,7 @@ class Welcome(commands.Cog):
 
     @commands.hybrid_command(name="goodbye")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def goodbye(self, ctx: commands.Context, value: str) -> None:
         enabled = value.casefold() == "on"
         if value.casefold() not in {"on", "off"}:

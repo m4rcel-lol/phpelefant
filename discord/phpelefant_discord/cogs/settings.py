@@ -10,6 +10,7 @@ from phpelefant_discord.db.session import session_scope
 from phpelefant_discord.services.moderation import log_action
 from phpelefant_discord.services.settings import get_or_create_guild_settings
 from phpelefant_discord.utils.formatting import code_embed, table_embed
+from phpelefant_discord.utils.permissions import owner_or_guild_permissions
 
 
 def bool_from_on_off(value: str) -> bool | None:
@@ -38,7 +39,7 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     @commands.hybrid_command(name="setlogchannel")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setlogchannel(self, ctx: commands.Context, channel: discord.TextChannel | None = None) -> None:
         async with session_scope(self.bot.session_factory) as session:
             settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
@@ -47,7 +48,7 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     @commands.hybrid_command(name="setwarnlimit")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setwarnlimit(self, ctx: commands.Context, limit: int) -> None:
         if not 1 <= limit <= 20:
             await ctx.send(embed=code_embed("Settings", "Warning limit must be 1-20."))
@@ -59,25 +60,25 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     @commands.hybrid_command(name="antispam")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def antispam(self, ctx: commands.Context, value: str) -> None:
         await self.set_bool(ctx, "anti_spam_enabled", value, "antispam")
 
     @commands.hybrid_command(name="antilink")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def antilink(self, ctx: commands.Context, value: str) -> None:
         await self.set_bool(ctx, "anti_link_enabled", value, "antilink")
 
     @commands.hybrid_command(name="anticaps")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def anticaps(self, ctx: commands.Context, value: str) -> None:
         await self.set_bool(ctx, "anti_caps_enabled", value, "anticaps")
 
     @commands.hybrid_command(name="forcesub")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def forcesub(self, ctx: commands.Context, value: str) -> None:
         await self.set_bool(ctx, "force_subscribe_enabled", value, "forcesub")
 
@@ -90,7 +91,7 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     @commands.hybrid_group(name="badwords", fallback="list")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def badwords(self, ctx: commands.Context) -> None:
         async with session_scope(self.bot.session_factory) as session:
             result = await session.scalars(select(BadWord.word).where(BadWord.guild_id == ctx.guild.id).order_by(BadWord.word))
@@ -113,7 +114,7 @@ class SettingsCog(commands.Cog, name="Settings"):
 
     @commands.hybrid_group(name="whitelist", fallback="list")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def whitelist(self, ctx: commands.Context) -> None:
         async with session_scope(self.bot.session_factory) as session:
             users = await session.scalars(select(WhitelistedUser.user_id).where(WhitelistedUser.guild_id == ctx.guild.id))

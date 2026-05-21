@@ -308,8 +308,16 @@ Announcements:
 - `announcefeed check [feed_id]`
 
 The announcement feed system polls RSS, Atom, JSON Feed-style payloads, and public
-Akkoma/Pleroma-style status JSON. For Twitter/X, use an official API-backed bridge
-or your own blog/Akkoma feed URL; the bot intentionally avoids scraping.
+Akkoma/Pleroma-style status JSON. Profile URLs are resolved before polling:
+
+- Fediverse examples such as `https://example.social/user` are tried as `/users/user/feed.atom`,
+  `/users/user.rss`, and `/@user.rss`.
+- Twitter/X profile URLs are resolved through RSSHub as `/twitter/user/<username>`.
+  Set `RSSHUB_BASE_URL` to your own RSSHub instance for production reliability.
+
+```env
+RSSHUB_BASE_URL=https://rsshub.app
+```
 
 Music:
 
@@ -320,6 +328,31 @@ Music:
 
 Music requires `davey`, `PyNaCl`, `yt-dlp`, and the FFmpeg binary installed on the host.
 Install Python dependencies from inside the same `.venv` used to run the bot, then restart the bot process.
+
+YouTube extraction now requires a JavaScript runtime for full support in modern `yt-dlp`.
+Deno is recommended by yt-dlp and is enabled by default when it is on `PATH`; Node can also work
+when configured for yt-dlp. On Alpine:
+
+```bash
+apk add ffmpeg deno
+```
+
+On Debian/Ubuntu:
+
+```bash
+apt install ffmpeg
+# install deno from https://docs.deno.com/runtime/getting_started/installation/
+```
+
+Spotify links are resolved as metadata first, then PHPelefant searches for a playable source.
+Single track links can use Spotify oEmbed fallback. Playlist and album links require Spotify
+Client Credentials:
+
+```env
+SPOTIFY_CLIENT_ID=your-client-id
+SPOTIFY_CLIENT_SECRET=your-client-secret
+SPOTIFY_MARKET=US
+```
 
 Owner:
 

@@ -18,7 +18,7 @@ dependencies = [
   "PyNaCl>=1.5,<2.0",
   "pydantic-settings>=2.2,<3.0",
   "SQLAlchemy>=2.0,<3.0",
-  "yt-dlp>=2025.12.8",
+  "yt-dlp[default]>=2025.12.8",
 ]
 
 [project.optional-dependencies]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import random
 import re
+from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 import aiohttp
@@ -234,14 +235,32 @@ class Fun(commands.Cog):
         if profile is None:
             await ctx.send(embed=code_embed("Roblox", "Roblox user not found.", status="warning"))
             return
-        item = embed(profile["name"], profile.get("description") or "No Roblox description set.")
-        item.url = f"https://www.roblox.com/users/{profile['id']}/profile"
-        item.add_field(name="User ID", value=str(profile["id"]), inline=True)
-        item.add_field(name="Display Name", value=profile.get("displayName") or profile["name"], inline=True)
-        item.add_field(name="Created", value=str(profile.get("created", "unknown"))[:32], inline=True)
+        profile_url = f"https://www.roblox.com/users/{profile['id']}/profile"
+        display_name = profile.get("displayName") or profile["name"]
+        item = embed(f"{display_name} (@{profile['name']})", profile.get("description") or "No Roblox description set.")
+        item.url = profile_url
+        item.add_field(name="User ID", value=f"`{profile['id']}`", inline=True)
+        item.add_field(name="Username", value=f"`{profile['name']}`", inline=True)
+        item.add_field(name="Display Name", value=str(display_name), inline=True)
+        created_text, age_text = self.roblox_created_text(profile.get("created"))
+        item.add_field(name="Created", value=created_text, inline=True)
+        item.add_field(name="Account Age", value=age_text, inline=True)
         item.add_field(name="Banned", value="Yes" if profile.get("isBanned") else "No", inline=True)
+        counts = profile.get("counts") if isinstance(profile.get("counts"), dict) else {}
+        item.add_field(
+            name="Social",
+            value=(
+                f"Friends: `{counts.get('friends', 'unknown')}`\n"
+                f"Followers: `{counts.get('followers', 'unknown')}`\n"
+                f"Following: `{counts.get('following', 'unknown')}`"
+            ),
+            inline=True,
+        )
+        item.add_field(name="Links", value=f"[Profile]({profile_url})", inline=True)
+        if profile.get("headshot"):
+            item.set_thumbnail(url=profile["headshot"])
         if profile.get("avatar"):
-            item.set_thumbnail(url=profile["avatar"])
+            item.set_image(url=profile["avatar"])
         await ctx.send(embed=item)
 
     @commands.hybrid_command(name="togif")
@@ -316,39 +335,76 @@ class Fun(commands.Cog):
 
     async def fetch_roblox_profile(self, username_or_id: str) -> dict | None:
         value = username_or_id.strip()
-        async with aiohttp.ClientSession() as session:
-            if value.isdigit():
-                user_id = int(value)
-            else:
-                async with session.post(
-                    "https://users.roblox.com/v1/usernames/users",
-                    json={"usernames": [value], "excludeBannedUsers": False},
-                    timeout=12,
-                ) as response:
+        try:
+            async with aiohttp.ClientSession() as session:
+                if value.isdigit():
+                    user_id = int(value)
+                else:
+                    async with session.post(
+                        "https://users.roblox.com/v1/usernames/users",
+                        json={"usernames": [value], "excludeBannedUsers": False},
+                        timeout=12,
+                    ) as response:
+                        response.raise_for_status()
+                        payload = await response.json()
+                    users = payload.get("data", [])
+                    if not users:
+                        return None
+                    user_id = int(users[0]["id"])
+
+                async with session.get(f"https://users.roblox.com/v1/users/{user_id}", timeout=12) as response:
+                    if response.status == 404:
+                        return None
                     response.raise_for_status()
-                    payload = await response.json()
-                users = payload.get("data", [])
-                if not users:
-                    return None
-                user_id = int(users[0]["id"])
+                    profile = await response.json()
 
-            async with session.get(f"https://users.roblox.com/v1/users/{user_id}", timeout=12) as response:
-                if response.status == 404:
-                    return None
-                response.raise_for_status()
-                profile = await response.json()
-
-            async with session.get(
-                "https://thumbnails.roblox.com/v1/users/avatar-headshot",
-                params={"userIds": user_id, "size": "420x420", "format": "Png", "isCircular": "false"},
-                timeout=12,
-            ) as response:
-                response.raise_for_status()
-                thumbs = await response.json()
-        data = thumbs.get("data", [])
-        if data and isinstance(data[0], dict):
-            profile["avatar"] = data[0].get("imageUrl")
+                profile["headshot"] = await self.fetch_roblox_thumbnail(session, "avatar-headshot", user_id, "420x420")
+                profile["avatar"] = await self.fetch_roblox_thumbnail(session, "avatar", user_id, "720x720")
+                profile["counts"] = {
+                    "friends": await self.fetch_roblox_count(session, f"https://friends.roblox.com/v1/users/{user_id}/friends/count"),
+                    "followers": await self.fetch_roblox_count(session, f"https://friends.roblox.com/v1/users/{user_id}/followers/count"),
+                    "following": await self.fetch_roblox_count(session, f"https://friends.roblox.com/v1/users/{user_id}/followings/count"),
+                }
+        except (aiohttp.ClientError, TimeoutError, ValueError, KeyError):
+            return None
         return profile
+
+    async def fetch_roblox_thumbnail(self, session: aiohttp.ClientSession, kind: str, user_id: int, size: str) -> str | None:
+        async with session.get(
+            f"https://thumbnails.roblox.com/v1/users/{kind}",
+            params={"userIds": user_id, "size": size, "format": "Png", "isCircular": "false"},
+            timeout=12,
+        ) as response:
+            response.raise_for_status()
+            payload = await response.json()
+        data = payload.get("data", [])
+        if data and isinstance(data[0], dict):
+            image_url = data[0].get("imageUrl")
+            return image_url if isinstance(image_url, str) else None
+        return None
+
+    async def fetch_roblox_count(self, session: aiohttp.ClientSession, url: str) -> int | str:
+        try:
+            async with session.get(url, timeout=12) as response:
+                response.raise_for_status()
+                payload = await response.json()
+        except (aiohttp.ClientError, TimeoutError, ValueError):
+            return "unknown"
+        count = payload.get("count")
+        return int(count) if isinstance(count, int) else "unknown"
+
+    @staticmethod
+    def roblox_created_text(value: object) -> tuple[str, str]:
+        if not isinstance(value, str):
+            return "unknown", "unknown"
+        try:
+            created = datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
+        except ValueError:
+            return value[:32], "unknown"
+        age_days = max(0, (datetime.now(tz=UTC) - created).days)
+        years, days = divmod(age_days, 365)
+        age = f"{years}y {days}d" if years else f"{days}d"
+        return created.strftime("%Y-%m-%d %H:%M UTC"), age
 
     async def download_image_file(self, image_url: str, filename_prefix: str) -> discord.File | None:
         try:

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     default_language: str = Field("en", alias="DEFAULT_LANGUAGE")
     default_timezone: str = Field("UTC", alias="DEFAULT_TIMEZONE")
     xp_cooldown_seconds: int = Field(45, alias="XP_COOLDOWN_SECONDS")
+    spotify_client_id: str | None = Field(None, alias="SPOTIFY_CLIENT_ID")
+    spotify_client_secret: SecretStr | None = Field(None, alias="SPOTIFY_CLIENT_SECRET")
+    spotify_market: str = Field("US", alias="SPOTIFY_MARKET")
+    rsshub_base_url: str | None = Field("https://rsshub.app", alias="RSSHUB_BASE_URL")
 
     @field_validator("shell_timeout_seconds")
     @classmethod

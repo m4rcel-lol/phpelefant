@@ -82,7 +82,9 @@ class Utility(commands.Cog):
             ),
             (
                 "Music And Announcements",
-                "`join`, `play`, `playlist`, `pause`, `resume`, `loop`, `nowplaying`, `stop`, `leave`, `announcefeed`, `announcefeed add`, `announcefeed remove`, `announcefeed check`",
+                "Slash: `/music join`, `/music play`, `/music playlist`, `/music pause`, `/music resume`, `/music loop`, `/music stop`, `/music leave`\n"
+                f"Prefix aliases: `{prefix}join`, `{prefix}play`, `{prefix}playlist`, `{prefix}pause`, `{prefix}resume`, `{prefix}loop`, `{prefix}stop`, `{prefix}leave`\n"
+                "`announcefeed`, `announcefeed add`, `announcefeed remove`, `announcefeed check`",
             ),
             (
                 "Owner Console",

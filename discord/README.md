@@ -313,15 +313,9 @@ or your own blog/Akkoma feed URL; the bot intentionally avoids scraping.
 
 Music:
 
-- `join`
-- `play <song_url_or_query>`
-- `playlist <playlist_url>`
-- `pause`
-- `resume`
-- `loop [on|off]`
-- `nowplaying`
-- `stop`
-- `leave`
+- Slash: `music join`, `music play <song_url_or_query>`, `music playlist <playlist_url>`
+- Slash: `music pause`, `music resume`, `music loop [on|off]`, `music nowplaying`, `music stop`, `music leave`
+- Prefix aliases: `join`, `play`, `playlist`, `pause`, `resume`, `loop`, `nowplaying`, `stop`, `leave`
 
 Music requires `PyNaCl`, `yt-dlp`, and the FFmpeg binary installed on the host.
 

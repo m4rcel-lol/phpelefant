@@ -34,9 +34,102 @@ class Music(commands.Cog):
     def state(self, guild_id: int) -> MusicState:
         return self.states.setdefault(guild_id, MusicState())
 
-    @commands.hybrid_command(name="join")
+    @commands.hybrid_group(name="music", invoke_without_command=True)
     @commands.guild_only()
-    async def join(self, ctx: commands.Context) -> None:
+    async def music(self, ctx: commands.Context) -> None:
+        await self._nowplaying(ctx)
+
+    @music.command(name="join")
+    @commands.guild_only()
+    async def music_join(self, ctx: commands.Context) -> None:
+        await self._join(ctx)
+
+    @music.command(name="play")
+    @commands.guild_only()
+    async def music_play(self, ctx: commands.Context, *, song_url: str) -> None:
+        await self._play(ctx, song_url)
+
+    @music.command(name="playlist")
+    @commands.guild_only()
+    async def music_playlist(self, ctx: commands.Context, *, playlist_url: str) -> None:
+        await self._playlist(ctx, playlist_url)
+
+    @music.command(name="pause")
+    @commands.guild_only()
+    async def music_pause(self, ctx: commands.Context) -> None:
+        await self._pause(ctx)
+
+    @music.command(name="resume")
+    @commands.guild_only()
+    async def music_resume(self, ctx: commands.Context) -> None:
+        await self._resume(ctx)
+
+    @music.command(name="stop")
+    @commands.guild_only()
+    async def music_stop(self, ctx: commands.Context) -> None:
+        await self._stop(ctx)
+
+    @music.command(name="loop")
+    @commands.guild_only()
+    async def music_loop(self, ctx: commands.Context, value: str = "toggle") -> None:
+        await self._loop(ctx, value)
+
+    @music.command(name="nowplaying")
+    @commands.guild_only()
+    async def music_nowplaying(self, ctx: commands.Context) -> None:
+        await self._nowplaying(ctx)
+
+    @music.command(name="leave")
+    @commands.guild_only()
+    async def music_leave(self, ctx: commands.Context) -> None:
+        await self._leave(ctx)
+
+    @commands.command(name="join")
+    @commands.guild_only()
+    async def join_prefix(self, ctx: commands.Context) -> None:
+        await self._join(ctx)
+
+    @commands.command(name="play")
+    @commands.guild_only()
+    async def play_prefix(self, ctx: commands.Context, *, song_url: str) -> None:
+        await self._play(ctx, song_url)
+
+    @commands.command(name="playlist")
+    @commands.guild_only()
+    async def playlist_prefix(self, ctx: commands.Context, *, playlist_url: str) -> None:
+        await self._playlist(ctx, playlist_url)
+
+    @commands.command(name="pause")
+    @commands.guild_only()
+    async def pause_prefix(self, ctx: commands.Context) -> None:
+        await self._pause(ctx)
+
+    @commands.command(name="resume")
+    @commands.guild_only()
+    async def resume_prefix(self, ctx: commands.Context) -> None:
+        await self._resume(ctx)
+
+    @commands.command(name="stop")
+    @commands.guild_only()
+    async def stop_prefix(self, ctx: commands.Context) -> None:
+        await self._stop(ctx)
+
+    @commands.command(name="loop")
+    @commands.guild_only()
+    async def loop_prefix(self, ctx: commands.Context, value: str = "toggle") -> None:
+        await self._loop(ctx, value)
+
+    @commands.command(name="nowplaying")
+    @commands.guild_only()
+    async def nowplaying_prefix(self, ctx: commands.Context) -> None:
+        await self._nowplaying(ctx)
+
+    @commands.command(name="leave")
+    @commands.guild_only()
+    async def leave_prefix(self, ctx: commands.Context) -> None:
+        await self._leave(ctx)
+
+    async def _join(self, ctx: commands.Context) -> None:
         channel = self.author_voice_channel(ctx)
         if channel is None:
             await ctx.send(embed=error_embed("Music", "Join a voice or stage channel first."))
@@ -52,9 +145,7 @@ class Music(commands.Cog):
             return
         await ctx.send(embed=success_embed("Music", f"Joined `{channel}`."))
 
-    @commands.hybrid_command(name="play")
-    @commands.guild_only()
-    async def play(self, ctx: commands.Context, *, song_url: str) -> None:
+    async def _play(self, ctx: commands.Context, song_url: str) -> None:
         channel = self.author_voice_channel(ctx)
         if channel is None:
             await ctx.send(embed=error_embed("Music", "Join a voice or stage channel first."))
@@ -74,9 +165,7 @@ class Music(commands.Cog):
         if not voice.is_playing() and not voice.is_paused():
             await self.play_next(ctx.guild.id)
 
-    @commands.hybrid_command(name="playlist")
-    @commands.guild_only()
-    async def playlist(self, ctx: commands.Context, *, playlist_url: str) -> None:
+    async def _playlist(self, ctx: commands.Context, playlist_url: str) -> None:
         channel = self.author_voice_channel(ctx)
         if channel is None:
             await ctx.send(embed=error_embed("Music", "Join a voice or stage channel first."))
@@ -96,9 +185,7 @@ class Music(commands.Cog):
         if not voice.is_playing() and not voice.is_paused():
             await self.play_next(ctx.guild.id)
 
-    @commands.hybrid_command(name="pause")
-    @commands.guild_only()
-    async def pause(self, ctx: commands.Context) -> None:
+    async def _pause(self, ctx: commands.Context) -> None:
         voice = ctx.voice_client
         if isinstance(voice, discord.VoiceClient) and voice.is_playing():
             voice.pause()
@@ -106,9 +193,7 @@ class Music(commands.Cog):
             return
         await ctx.send(embed=warning_embed("Music", "Nothing is playing."))
 
-    @commands.hybrid_command(name="resume")
-    @commands.guild_only()
-    async def resume(self, ctx: commands.Context) -> None:
+    async def _resume(self, ctx: commands.Context) -> None:
         voice = ctx.voice_client
         if isinstance(voice, discord.VoiceClient) and voice.is_paused():
             voice.resume()
@@ -116,9 +201,7 @@ class Music(commands.Cog):
             return
         await ctx.send(embed=warning_embed("Music", "Nothing is paused."))
 
-    @commands.hybrid_command(name="stop")
-    @commands.guild_only()
-    async def stop(self, ctx: commands.Context) -> None:
+    async def _stop(self, ctx: commands.Context) -> None:
         state = self.state(ctx.guild.id)
         state.queue.clear()
         state.loop_current = False
@@ -127,9 +210,7 @@ class Music(commands.Cog):
             voice.stop()
         await ctx.send(embed=success_embed("Music", "Stopped playback and cleared the queue."))
 
-    @commands.hybrid_command(name="loop")
-    @commands.guild_only()
-    async def loop(self, ctx: commands.Context, value: str = "toggle") -> None:
+    async def _loop(self, ctx: commands.Context, value: str = "toggle") -> None:
         state = self.state(ctx.guild.id)
         if value.casefold() in {"on", "true", "yes", "enable"}:
             state.loop_current = True
@@ -142,18 +223,14 @@ class Music(commands.Cog):
             return
         await ctx.send(embed=success_embed("Loop", f"Current-track loop is {'enabled' if state.loop_current else 'disabled'}."))
 
-    @commands.hybrid_command(name="nowplaying")
-    @commands.guild_only()
-    async def nowplaying(self, ctx: commands.Context) -> None:
+    async def _nowplaying(self, ctx: commands.Context) -> None:
         state = self.state(ctx.guild.id)
         if state.current is None:
             await ctx.send(embed=warning_embed("Music", "Nothing is playing."))
             return
         await ctx.send(embed=self.track_embed("Now Playing", state.current, queue_size=len(state.queue)))
 
-    @commands.hybrid_command(name="leave")
-    @commands.guild_only()
-    async def leave(self, ctx: commands.Context) -> None:
+    async def _leave(self, ctx: commands.Context) -> None:
         voice = ctx.voice_client
         if isinstance(voice, discord.VoiceClient):
             await voice.disconnect(force=False)

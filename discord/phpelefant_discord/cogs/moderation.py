@@ -11,7 +11,7 @@ from phpelefant_discord.db.models import ModerationLog
 from phpelefant_discord.db.session import session_scope
 from phpelefant_discord.services.moderation import add_warning, log_action, reset_warnings, warning_count
 from phpelefant_discord.services.settings import get_or_create_guild_settings
-from phpelefant_discord.utils.formatting import code_embed, error_embed, moderation_embed, success_embed, table_embed
+from phpelefant_discord.utils.formatting import code_embed, error_embed, moderation_embed, success_embed, table_embed, warning_embed
 from phpelefant_discord.utils.time import parse_duration
 
 STAFF_PERMISSION_NAMES = (
@@ -96,6 +96,22 @@ class Moderation(commands.Cog):
     def __init__(self, bot: PHPelefantBot) -> None:
         self.bot = bot
 
+    @staticmethod
+    def action_embed(
+        title: str,
+        member: discord.Member,
+        rows: list[tuple[str, object]],
+        *,
+        description: str | None = None,
+        status: str = "moderation",
+    ) -> discord.Embed:
+        item = table_embed(title, rows, status=status, description=description)
+        item.set_thumbnail(url=member.display_avatar.url)
+        item.add_field(name="Account Created", value=member.created_at.strftime("%Y-%m-%d %H:%M UTC"), inline=True)
+        if member.joined_at:
+            item.add_field(name="Joined Server", value=member.joined_at.strftime("%Y-%m-%d %H:%M UTC"), inline=True)
+        return item
+
     @commands.hybrid_command(name="ban")
     @commands.guild_only()
     async def ban(self, ctx: commands.Context, member: discord.Member, *, reason: str = "No reason provided") -> None:
@@ -113,7 +129,14 @@ class Moderation(commands.Cog):
             return
         async with session_scope(self.bot.session_factory) as session:
             await log_action(session, ctx.guild.id, "ban", member.id, ctx.author.id, reason)
-        await ctx.send(embed=table_embed("Ban", [("user", member.mention), ("reason", reason)], status="moderation"))
+        await ctx.send(
+            embed=self.action_embed(
+                "Ban",
+                member,
+                [("user", member.mention), ("user id", member.id), ("moderator", ctx.author.mention), ("reason", reason)],
+                description="The member was banned from this server.",
+            )
+        )
 
     @commands.hybrid_command(name="fakeban")
     @commands.guild_only()
@@ -128,6 +151,7 @@ class Moderation(commands.Cog):
             "You have been banned",
             f"You have been banned from **{ctx.guild.name}**.",
         )
+        dm.set_thumbnail(url=member.display_avatar.url)
         dm.add_field(name="Reason", value=reason[:1024], inline=False)
         dm.add_field(name="Moderator", value=str(ctx.author), inline=False)
         try:
@@ -147,15 +171,17 @@ class Moderation(commands.Cog):
             )
 
         await ctx.send(
-            embed=table_embed(
-                "Ban",
+            embed=self.action_embed(
+                "Fake Ban",
+                member,
                 [
                     ("user", member.mention),
+                    ("user id", member.id),
                     ("reason", reason),
                     ("moderator", ctx.author.mention),
                     ("dm", "sent" if dm_sent else "failed or closed"),
                 ],
-                status="moderation",
+                description="No real ban was applied. This is a staff-only fake ban notice.",
             )
         )
 
@@ -193,7 +219,14 @@ class Moderation(commands.Cog):
             return
         async with session_scope(self.bot.session_factory) as session:
             await log_action(session, ctx.guild.id, "kick", member.id, ctx.author.id, reason)
-        await ctx.send(embed=table_embed("Kick", [("user", member.mention), ("reason", reason)], status="moderation"))
+        await ctx.send(
+            embed=self.action_embed(
+                "Kick",
+                member,
+                [("user", member.mention), ("user id", member.id), ("moderator", ctx.author.mention), ("reason", reason)],
+                description="The member was removed from this server.",
+            )
+        )
 
     @commands.hybrid_command(name="mute", aliases=["timeout"])
     @commands.guild_only()
@@ -218,7 +251,13 @@ class Moderation(commands.Cog):
             return
         async with session_scope(self.bot.session_factory) as session:
             await log_action(session, ctx.guild.id, "timeout", member.id, ctx.author.id, reason, {"duration": duration})
-        await ctx.send(embed=table_embed("Timeout", [("user", member.mention), ("duration", duration), ("reason", reason)], status="moderation"))
+        await ctx.send(
+            embed=self.action_embed(
+                "Timeout",
+                member,
+                [("user", member.mention), ("duration", duration), ("until", until.strftime("%Y-%m-%d %H:%M UTC")), ("reason", reason)],
+            )
+        )
 
     @commands.hybrid_command(name="unmute", aliases=["untimeout"])
     @commands.guild_only()
@@ -244,7 +283,18 @@ class Moderation(commands.Cog):
         async with session_scope(self.bot.session_factory) as session:
             settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
             count, auto = await add_warning(session, settings, member, ctx.author.id, reason)
-        await ctx.send(embed=table_embed("Warn", [("user", member.mention), ("warnings", f"{count}/{settings.warning_limit}"), ("reason", reason), ("auto", auto or "none")], status="moderation"))
+        await ctx.send(
+            embed=self.action_embed(
+                "Warn",
+                member,
+                [
+                    ("user", member.mention),
+                    ("warnings", f"{count}/{settings.warning_limit}"),
+                    ("reason", reason),
+                    ("auto action", auto or "none"),
+                ],
+            )
+        )
 
     @commands.hybrid_command(name="warnings")
     @commands.guild_only()
@@ -315,10 +365,50 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(name="rules")
     @commands.guild_only()
-    async def rules(self, ctx: commands.Context) -> None:
+    async def rules(self, ctx: commands.Context, channel: discord.TextChannel | None = None) -> None:
+        if channel is not None:
+            if not is_staff_context(ctx):
+                await ctx.send(embed=error_embed("Rules", "Only staff can import rules from a channel."))
+                return
+            scraped = await self.scrape_rules(channel)
+            if scraped is None:
+                await ctx.send(embed=warning_embed("Rules", "No usable rules were found in that channel. Use `/setrules` to enter them manually."))
+                return
+            async with session_scope(self.bot.session_factory) as session:
+                settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
+                settings.rules_text = scraped[:4000]
+                await log_action(session, ctx.guild.id, "scrape_rules", None, ctx.author.id, f"channel={channel.id}")
+            item = success_embed("Rules Imported", scraped[:4000])
+            item.add_field(name="Source", value=channel.mention, inline=True)
+            await ctx.send(embed=item)
+            return
         async with session_scope(self.bot.session_factory) as session:
             settings = await get_or_create_guild_settings(session, ctx.guild.id, self.bot.settings)
         await ctx.send(embed=moderation_embed("Rules", settings.rules_text))
+
+    async def scrape_rules(self, channel: discord.TextChannel) -> str | None:
+        candidates: list[str] = []
+        async for message in channel.history(limit=50, oldest_first=True):
+            if message.author.bot and not message.embeds:
+                continue
+            text = message.clean_content.strip()
+            if text:
+                candidates.append(text)
+            for item in message.embeds:
+                parts = [item.title or "", item.description or ""]
+                parts.extend(field.value for field in item.fields)
+                merged = "\n".join(part.strip() for part in parts if part and part.strip())
+                if merged:
+                    candidates.append(merged)
+        if not candidates:
+            return None
+        ruleish = [
+            candidate
+            for candidate in candidates
+            if any(marker in candidate.casefold() for marker in ("rule", "rules", "1.", "1)", "respect", "allowed", "not allowed"))
+        ]
+        text = "\n\n".join(ruleish or candidates).strip()
+        return text[:4000] if len(text) >= 20 else None
 
     @commands.hybrid_command(name="setrules")
     @commands.guild_only()

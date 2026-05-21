@@ -32,6 +32,7 @@ from phpelefant_discord.utils.formatting import (
 from phpelefant_discord.utils.permissions import owner_or_guild_permissions
 
 PANEL_CUSTOM_ID = "phpelefant:tickets:open"
+BUTTON_CUSTOM_ID_PREFIX = "phpelefant:tickets:button:"
 CLOSE_CUSTOM_ID = "phpelefant:tickets:close"
 CLAIM_CUSTOM_ID = "phpelefant:tickets:claim"
 TRANSCRIPT_CUSTOM_ID = "phpelefant:tickets:transcript"
@@ -71,6 +72,45 @@ class TicketPanelView(discord.ui.View):
         super().__init__(timeout=None)
         self.bot = bot
         self.add_item(TicketCategorySelect(bot, categories))
+
+
+class TicketCategoryButton(discord.ui.Button):
+    def __init__(self, bot: PHPelefantBot, index: int, category: str | None = None) -> None:
+        self.bot = bot
+        self.index = index
+        super().__init__(
+            label=(category or f"Ticket {index + 1}")[:80],
+            style=discord.ButtonStyle.primary,
+            custom_id=f"{BUTTON_CUSTOM_ID_PREFIX}{index}",
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        cog = self.bot.get_cog("Tickets")
+        if not isinstance(cog, Tickets):
+            await interaction.response.send_message(embed=error_embed("Tickets", "Ticket system is not loaded."), ephemeral=True)
+            return
+        if interaction.guild is None:
+            await interaction.response.send_message(embed=error_embed("Tickets", "Tickets can only be opened inside a server."), ephemeral=True)
+            return
+        async with session_scope(cog.bot.session_factory) as session:
+            config = await get_or_create_ticket_config(session, interaction.guild.id)
+            categories = parse_ticket_categories(config.ticket_categories)
+        if self.index >= len(categories):
+            await interaction.response.send_message(embed=error_embed("Tickets", "This ticket button no longer maps to a category."), ephemeral=True)
+            return
+        category = categories[self.index]
+        await cog.open_ticket_from_interaction(interaction, category, f"{category} ticket opened from button panel")
+
+
+class TicketButtonPanelView(discord.ui.View):
+    def __init__(self, bot: PHPelefantBot, categories: list[str] | None = None, *, persistent: bool = False) -> None:
+        super().__init__(timeout=None)
+        self.bot = bot
+        values = categories or ["General Support", "Billing", "Bug Report", "Staff Report", "Appeal"]
+        count = 25 if persistent else min(len(values), 25)
+        for index in range(count):
+            category = None if persistent else values[index]
+            self.add_item(TicketCategoryButton(bot, index, category))
 
 
 class TicketChannelView(discord.ui.View):
@@ -141,6 +181,7 @@ class Tickets(commands.Cog):
         self,
         ctx: commands.Context,
         channel: discord.TextChannel | None = None,
+        style: str = "dropdown",
         *,
         description: str = "Open a private support ticket and the server team will help you there.",
     ) -> None:
@@ -160,10 +201,29 @@ class Tickets(commands.Cog):
             config = await get_or_create_ticket_config(session, ctx.guild.id)
             categories = parse_ticket_categories(config.ticket_categories)
 
-        panel.add_field(name="Choose A Category", value="Use the dropdown below and PHPelefant will create a private channel for you.", inline=False)
+        normalized_style = style.casefold()
+        if normalized_style not in {"dropdown", "buttons", "button"}:
+            await ctx.send(embed=error_embed("Tickets", "Panel style must be `dropdown` or `buttons`."))
+            return
+        panel.add_field(
+            name="Choose A Category",
+            value=(
+                "Use a button below and PHPelefant will create a private channel for you."
+                if normalized_style in {"buttons", "button"}
+                else "Use the dropdown below and PHPelefant will create a private channel for you."
+            ),
+            inline=False,
+        )
         panel.add_field(name="Available Categories", value=", ".join(f"`{category}`" for category in categories), inline=False)
+        if self.bot.user:
+            panel.set_thumbnail(url=self.bot.user.display_avatar.url)
 
-        message = await target.send(embed=panel, view=TicketPanelView(self.bot, categories))
+        view: discord.ui.View
+        if normalized_style in {"buttons", "button"}:
+            view = TicketButtonPanelView(self.bot, categories)
+        else:
+            view = TicketPanelView(self.bot, categories)
+        message = await target.send(embed=panel, view=view)
         async with session_scope(self.bot.session_factory) as session:
             config = await get_or_create_ticket_config(session, ctx.guild.id)
             config.panel_channel_id = target.id
@@ -718,4 +778,5 @@ async def setup(bot: PHPelefantBot) -> None:
     cog = Tickets(bot)
     await bot.add_cog(cog)
     bot.add_view(TicketPanelView(bot))
+    bot.add_view(TicketButtonPanelView(bot, persistent=True))
     bot.add_view(TicketChannelView(bot))

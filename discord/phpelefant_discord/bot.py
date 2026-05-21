@@ -21,11 +21,23 @@ class PHPelefantBot(commands.Bot):
         intents.guilds = True
         intents.members = True
         intents.message_content = True
+        app_command_options = {
+            "allowed_contexts": app_commands.AppCommandContext(
+                guild=True,
+                dm_channel=True,
+                private_channel=True,
+            ),
+            "allowed_installs": app_commands.AppInstallationType(
+                guild=True,
+                user=True,
+            ),
+        }
         super().__init__(
             command_prefix=commands.when_mentioned_or(settings.command_prefix),
             intents=intents,
             help_command=None,
             allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
+            **app_command_options,
         )
         self.settings = settings
         self.engine: AsyncEngine = make_engine(settings.database_url)
@@ -40,10 +52,12 @@ class PHPelefantBot(commands.Bot):
             "phpelefant_discord.cogs.moderation",
             "phpelefant_discord.cogs.channel_edit",
             "phpelefant_discord.cogs.tickets",
+            "phpelefant_discord.cogs.announcements",
             "phpelefant_discord.cogs.settings",
             "phpelefant_discord.cogs.welcome",
             "phpelefant_discord.cogs.activity",
             "phpelefant_discord.cogs.fun",
+            "phpelefant_discord.cogs.music",
             "phpelefant_discord.cogs.events",
         ):
             await self.load_extension(extension)

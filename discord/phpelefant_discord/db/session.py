@@ -22,12 +22,18 @@ def make_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession
 async def init_database(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
-        await connection.run_sync(ensure_ticket_columns)
+        await connection.run_sync(ensure_compatibility_columns)
 
 
-def ensure_ticket_columns(connection) -> None:
+def ensure_compatibility_columns(connection) -> None:
     inspector = inspect(connection)
     table_names = set(inspector.get_table_names())
+    if "guild_settings" in table_names:
+        existing = {column["name"] for column in inspector.get_columns("guild_settings")}
+        if "welcome_dm_enabled" not in existing:
+            connection.execute(
+                text("ALTER TABLE guild_settings ADD COLUMN welcome_dm_enabled BOOLEAN DEFAULT false NOT NULL")
+            )
     if "ticket_configs" in table_names:
         existing = {column["name"] for column in inspector.get_columns("ticket_configs")}
         if "ticket_categories" not in existing:

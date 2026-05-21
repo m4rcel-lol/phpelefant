@@ -38,6 +38,7 @@ class GuildSettings(Base):
     guild_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     welcome_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     welcome_text: Mapped[str] = mapped_column(Text, default="Welcome {user} to {server}!")
+    welcome_dm_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     goodbye_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     goodbye_text: Mapped[str] = mapped_column(Text, default="Goodbye {user}.")
     rules_text: Mapped[str] = mapped_column(Text, default="Be respectful, avoid spam, and follow Discord Terms of Service.")
@@ -236,3 +237,18 @@ class Ticket(Base):
     close_reason: Mapped[str | None] = mapped_column(Text)
     opened_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AnnouncementFeed(Base):
+    __tablename__ = "announcement_feeds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    guild_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    channel_id: Mapped[int] = mapped_column(BigInteger)
+    name: Mapped[str] = mapped_column(String(120), default="PHPelefant Feed")
+    feed_url: Mapped[str] = mapped_column(Text)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    last_entry_id: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

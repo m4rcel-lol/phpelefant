@@ -17,7 +17,7 @@ from phpelefant_discord.services.moderation import log_action
 from phpelefant_discord.services.settings import known_guild_ids, known_user_ids
 from phpelefant_discord.services.shell import add_shell_user, is_shell_allowed, list_shell_users, remove_shell_user, run_real_shell
 from phpelefant_discord.services.stats import global_counts
-from phpelefant_discord.utils.formatting import code_embed, error_embed, success_embed, table_embed, truncate
+from phpelefant_discord.utils.formatting import code_embed, embed, error_embed, success_embed, table_embed, truncate
 from phpelefant_discord.cogs.utility import uptime_text
 
 
@@ -42,6 +42,7 @@ class Owner(commands.Cog):
                     ("broadcast", "broadcast <message>"),
                     ("broadcastchannel", "broadcastchannel <message>"),
                     ("statsglobal", "statsglobal"),
+                    ("announcements", "announcefeed add <channel> <feed_url>"),
                     ("leaveguild", "leaveguild <guild_id>"),
                     ("blacklistuser", "blacklistuser <user_id> <reason>"),
                     ("blacklistguild", "blacklistguild <guild_id> <reason>"),
@@ -59,21 +60,33 @@ class Owner(commands.Cog):
     @owner_only()
     async def broadcast(self, ctx: commands.Context, *, message: str) -> None:
         sent = failed = 0
+        announcement = self.broadcast_embed("PHPelefant Broadcast", message, ctx.author)
         async with session_scope(self.bot.session_factory) as session:
             targets = sorted(set(await known_guild_ids(session)) | set(await known_user_ids(session)))
             for target_id in targets:
-                target = self.bot.get_channel(target_id) or self.bot.get_user(target_id)
+                guild = self.bot.get_guild(target_id)
+                if guild is not None:
+                    target = guild.system_channel
+                else:
+                    target = self.bot.get_user(target_id)
                 if target is None:
                     failed += 1
                     continue
                 try:
-                    await target.send(message)
+                    await target.send(embed=announcement)
                     sent += 1
                     await asyncio.sleep(0.05)
                 except discord.DiscordException:
                     failed += 1
             session.add(BroadcastHistory(actor_user_id=ctx.author.id, target="all", message=message, sent_count=sent, failed_count=failed))
-        await ctx.send(embed=table_embed("Broadcast", [("sent", sent), ("failed", failed)]))
+        await ctx.send(
+            embed=table_embed(
+                "Broadcast Complete",
+                [("targets", len(targets)), ("sent", sent), ("failed", failed), ("message length", len(message))],
+                status="owner",
+                description="The broadcast was sent as a branded PHPelefant embed.",
+            )
+        )
 
     @commands.hybrid_command(name="broadcastchannel")
     @owner_only()
@@ -83,7 +96,7 @@ class Owner(commands.Cog):
         if not isinstance(channel, discord.abc.Messageable):
             await ctx.send(embed=error_embed("Broadcast", "Official server system channel is not configured or not cached."))
             return
-        await channel.send(message)
+        await channel.send(embed=self.broadcast_embed("Official PHPelefant Announcement", message, ctx.author))
         await ctx.send(embed=success_embed("Broadcast", "Sent to official server system channel."))
 
     @commands.hybrid_command(name="statsglobal")
@@ -240,6 +253,16 @@ class Owner(commands.Cog):
         if not result.stdout and not result.stderr:
             parts.append("\n(no output)")
         return "\n".join(parts)
+
+    @staticmethod
+    def broadcast_embed(title: str, message: str, author: discord.User | discord.Member) -> discord.Embed:
+        item = embed(title, message[:4000], status="owner")
+        item.add_field(name="Sent By", value=f"{author} (`{author.id}`)", inline=False)
+        try:
+            item.set_thumbnail(url=author.display_avatar.url)
+        except AttributeError:
+            pass
+        return item
 
 
 async def setup(bot: PHPelefantBot) -> None:

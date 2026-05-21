@@ -65,7 +65,7 @@ class Utility(commands.Cog):
             ),
             (
                 "Tickets",
-                "`ticket`, `ticket setup`, `ticket panel`, `ticket categories`, `ticket close`, `ticket claim`, `ticket add`, `ticket remove`, `ticket transcript`, `ticket settings`, `ticket enable`, `ticket disable`, `ticketsetup`",
+                "`ticket`, `ticket setup`, `ticket panel style:buttons`, `ticket categories`, `ticket close`, `ticket claim`, `ticket add`, `ticket remove`, `ticket transcript`, `ticket settings`, `ticket enable`, `ticket disable`, `ticketsetup`",
             ),
             (
                 "Channel Editor",
@@ -78,7 +78,11 @@ class Utility(commands.Cog):
             ),
             (
                 "Fun And Media",
-                "`joke`, `meme`, `quote`, `fact`, `8ball`, `coinflip`, `dice`, `roll`, `ship`, `roast`, `compliment`, `hug`, `slap`, `cat`, `dog`, `httpcat`, `httpdog`, `choose`, `rate`, `avatar`, `poll`, `quiz`",
+                "`joke`, `meme`, `quote`, `fact`, `8ball`, `coinflip`, `dice`, `roll`, `ship`, `roast`, `compliment`, `hug`, `slap`, `cat`, `dog`, `httpcat`, `httpdog`, `choose`, `rate`, `avatar`, `poll`, `quiz`, `roblox`, `togif`, `caption`",
+            ),
+            (
+                "Music And Announcements",
+                "`join`, `play`, `playlist`, `pause`, `resume`, `loop`, `nowplaying`, `stop`, `leave`, `announcefeed`, `announcefeed add`, `announcefeed remove`, `announcefeed check`",
             ),
             (
                 "Owner Console",

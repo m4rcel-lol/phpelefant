@@ -14,7 +14,7 @@ from phpelefant_discord.services.antispam import AutoAction, SpamMemory, analyze
 from phpelefant_discord.services.moderation import add_warning, log_action
 from phpelefant_discord.services.settings import get_or_create_guild_settings, upsert_guild, upsert_user
 from phpelefant_discord.services.stats import increment_stat
-from phpelefant_discord.utils.formatting import code_embed, error_embed
+from phpelefant_discord.utils.formatting import code_embed, embed, error_embed
 
 logger = logging.getLogger(__name__)
 
@@ -96,11 +96,18 @@ class Events(commands.Cog):
             await mark_joined(session, member.guild.id, member.id, member.joined_at)
         if settings.welcome_enabled:
             channel = member.guild.get_channel(settings.welcome_channel_id) if settings.welcome_channel_id else member.guild.system_channel
+            text = render_template(settings.welcome_text, member, settings.rules_text)
+            welcome_embed = embed("Welcome", text, status="success")
+            welcome_embed.set_thumbnail(url=member.display_avatar.url)
+            if "{rules}" not in settings.welcome_text:
+                welcome_embed.add_field(name="Rules", value=settings.rules_text[:1024], inline=False)
             if isinstance(channel, discord.TextChannel):
-                text = render_template(settings.welcome_text, member, settings.rules_text)
-                if "{rules}" not in settings.welcome_text:
-                    text += f"\n\nRules:\n{settings.rules_text}"
-                await channel.send(text)
+                await channel.send(embed=welcome_embed)
+            if settings.welcome_dm_enabled:
+                try:
+                    await member.send(embed=welcome_embed)
+                except discord.DiscordException:
+                    logger.info("Could not DM welcome message to %s in %s", member.id, member.guild.id)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member) -> None:
@@ -109,7 +116,7 @@ class Events(commands.Cog):
         if settings.goodbye_enabled:
             channel = member.guild.get_channel(settings.goodbye_channel_id) if settings.goodbye_channel_id else member.guild.system_channel
             if isinstance(channel, discord.TextChannel):
-                await channel.send(render_template(settings.goodbye_text, member, settings.rules_text))
+                await channel.send(embed=embed("Goodbye", render_template(settings.goodbye_text, member, settings.rules_text), status="neutral"))
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -164,13 +171,18 @@ class Events(commands.Cog):
 
 
 def render_template(template: str, member: discord.Member, rules: str) -> str:
-    return template.format(
-        user=member.mention,
-        username=str(member),
-        server=member.guild.name,
-        member_count=member.guild.member_count,
-        rules=rules,
-    )
+    values = {
+        "user": member.mention,
+        "username": str(member),
+        "group": member.guild.name,
+        "server": member.guild.name,
+        "member_count": member.guild.member_count,
+        "rules": rules,
+    }
+    try:
+        return template.format(**values)
+    except (KeyError, ValueError):
+        return template
 
 
 async def setup(bot: PHPelefantBot) -> None:

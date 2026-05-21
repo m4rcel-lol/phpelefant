@@ -19,6 +19,7 @@ discord/
     bot.py
     main.py
     cogs/
+      announcements.py
       activity.py
       channel_edit.py
       events.py
@@ -34,6 +35,7 @@ discord/
       session.py
     services/
       activity.py
+      announcements.py
       antispam.py
       moderation.py
       settings.py
@@ -45,6 +47,9 @@ discord/
       permissions.py
       text.py
       time.py
+  web/
+    index.html
+    styles.css
 ```
 
 ## Setup
@@ -73,6 +78,8 @@ Recommended bot permissions:
 - Send Messages
 - Embed Links
 - Add Reactions
+- Connect
+- Speak
 
 Install locally:
 
@@ -83,6 +90,7 @@ cp .env.example .env
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+# install FFmpeg from your OS package manager for music playback
 python -m phpelefant_discord.main
 ```
 
@@ -199,7 +207,7 @@ Tickets:
 - `ticket <reason>` opens a private support ticket
 - `ticket setup [category_id] [log_channel] [staff_role]` configures the ticket system and uses the given staff role, or creates/reuses `Ticket Staff`
 - `ticketsetup [category_id] [log_channel] [staff_role]` is a direct setup shortcut
-- `ticket panel [channel] [description]` posts a persistent dropdown ticket panel
+- `ticket panel [channel] [style] [description]` posts a persistent dropdown or button ticket panel
 - `ticket categories [cat1 | cat2 | cat3]` shows or replaces dropdown categories
 - `ticket close [reason]` closes the current ticket and saves a transcript
 - `ticket claim` marks the current ticket as claimed by staff
@@ -217,7 +225,7 @@ Ticket behavior:
 - Ticket setup creates a `Ticket Staff` role when no role is supplied and the bot has Manage Roles.
 - Ticket category setup uses a Discord category ID because categories cannot be reliably mentioned like normal channels.
 - Server admins, users with Manage Channels/Manage Guild/Moderate Members, and the bot owner count as ticket staff.
-- Dropdown panels persist across bot restarts.
+- Dropdown and button panels persist across bot restarts.
 - Opening a ticket pings the ticket staff role before posting the ticket intro embed.
 - Closing a ticket posts the transcript to the configured log channel, DMs the opener with a close summary and transcript, tries to DM the closing staff member with a transcript copy, then deletes the ticket channel.
 - One open ticket per user is enforced.
@@ -236,8 +244,9 @@ Settings:
 
 Welcome:
 
-- `setwelcome`
+- `setwelcome [channel] [dm_user] <message>`
 - `welcome on|off`
+- `welcome` shows the current setup preview
 - `setgoodbye`
 - `goodbye on|off`
 
@@ -273,6 +282,9 @@ Fun:
 - `choose`
 - `rate`
 - `avatar`
+- `roblox`
+- `togif`
+- `caption`
 - `poll`
 - `quiz`
 
@@ -287,6 +299,31 @@ For slash commands or non-reply usage, pass a message ID from the same channel:
 ```text
 /quote message_id:123456789012345678
 ```
+
+Announcements:
+
+- `announcefeed list`
+- `announcefeed add <channel> <feed_url> [name]`
+- `announcefeed remove <feed_id>`
+- `announcefeed check [feed_id]`
+
+The announcement feed system polls RSS, Atom, JSON Feed-style payloads, and public
+Akkoma/Pleroma-style status JSON. For Twitter/X, use an official API-backed bridge
+or your own blog/Akkoma feed URL; the bot intentionally avoids scraping.
+
+Music:
+
+- `join`
+- `play <song_url_or_query>`
+- `playlist <playlist_url>`
+- `pause`
+- `resume`
+- `loop [on|off]`
+- `nowplaying`
+- `stop`
+- `leave`
+
+Music requires `PyNaCl`, `yt-dlp`, and the FFmpeg binary installed on the host.
 
 Owner:
 
@@ -307,9 +344,16 @@ Owner:
 - `restart`
 - `shutdown`
 
+## Web Page
+
+The static documentation site lives in `web/`. Open `web/index.html` directly or
+serve it behind any static web server. Replace `CLIENT_ID` in the invite URL with
+the Discord application ID.
+
 ## Verification
 
 ```bash
 python -m compileall phpelefant_discord tests
 pytest
 ```
+      music.py

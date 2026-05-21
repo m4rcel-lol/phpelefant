@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PHPelefant Discord Bot</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">PHP</div>
+        <div>
+          <strong>PHPelefant</strong>
+          <span>Discord community bot</span>
+        </div>
+      </div>
+      <nav>
+        <a href="#commands">Commands</a>
+        <a href="#setup">Setup</a>
+        <a href="#terms">Terms</a>
+        <a href="#privacy">Privacy</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Moderation, tickets, activity, music, and media tools</p>
+          <h1>PHPelefant keeps Discord servers organized without getting in the way.</h1>
+          <p class="lead">
+            A production-minded Discord bot for staff teams that need moderation logs,
+            ticket workflows, anti-abuse tools, XP profiles, image utilities, music playback,
+            and owner-only operations.
+          </p>
+          <div class="actions">
+            <a class="button primary" href="#invite">Invite PHPelefant</a>
+            <a class="button" href="#commands">Read Commands</a>
+          </div>
+        </div>
+        <aside class="status-card">
+          <h2>Core Systems</h2>
+          <ul>
+            <li>Advanced moderation and audit logs</li>
+            <li>Dropdown or button ticket panels</li>
+            <li>Welcome embeds and DM onboarding</li>
+            <li>XP, levels, profiles, and leaderboards</li>
+            <li>Music playback with FFmpeg and yt-dlp</li>
+            <li>Owner shell and deployment controls</li>
+          </ul>
+        </aside>
+      </section>
+
+      <section id="invite" class="band">
+        <h2>Invite</h2>
+        <p>
+          Replace <code>CLIENT_ID</code> with the bot application ID from the Discord Developer Portal.
+        </p>
+        <pre><code>https://discord.com/oauth2/authorize?client_id=CLIENT_ID&amp;permissions=8&amp;scope=bot%20applications.commands</code></pre>
+        <p class="note">
+          For user-installed commands in DMs and group chats, enable user installation in the Discord
+          Developer Portal and keep the <code>applications.commands</code> scope enabled.
+        </p>
+      </section>
+
+      <section id="commands">
+        <h2>Command Groups</h2>
+        <div class="grid">
+          <article>
+            <h3>Moderation</h3>
+            <p><code>/ban</code>, <code>/fakeban</code>, <code>/kick</code>, <code>/mute</code>, <code>/warn</code>, <code>/purge</code>, <code>/rules</code>, <code>/modlogs</code></p>
+          </article>
+          <article>
+            <h3>Tickets</h3>
+            <p><code>/ticket setup</code>, <code>/ticket panel</code>, <code>/ticket categories</code>, <code>/ticket close</code>, <code>/ticket transcript</code></p>
+          </article>
+          <article>
+            <h3>Activity</h3>
+            <p><code>/rank</code>, <code>/leaderboard</code>, <code>/activity</code>, <code>/profile</code></p>
+          </article>
+          <article>
+            <h3>Fun And Media</h3>
+            <p><code>/meme</code>, <code>/quote</code>, <code>/roblox</code>, <code>/togif</code>, <code>/caption</code>, <code>/httpcat</code>, <code>/httpdog</code></p>
+          </article>
+          <article>
+            <h3>Music</h3>
+            <p><code>/join</code>, <code>/play</code>, <code>/playlist</code>, <code>/pause</code>, <code>/resume</code>, <code>/loop</code>, <code>/stop</code></p>
+          </article>
+          <article>
+            <h3>Owner</h3>
+            <p><code>/owner</code>, <code>/broadcast</code>, <code>/statsglobal</code>, <code>/shell</code>, <code>/backupdb</code>, <code>/restart</code></p>
+          </article>
+        </div>
+      </section>
+
+      <section id="setup" class="band">
+        <h2>Deployment</h2>
+        <ol>
+          <li>Create the bot in the Discord Developer Portal and copy the token.</li>
+          <li>Install dependencies with <code>pip install -r requirements.txt</code>.</li>
+          <li>Install FFmpeg for music playback.</li>
+          <li>Set <code>DISCORD_TOKEN</code>, <code>BOT_OWNER_ID</code>, and <code>DATABASE_URL</code> in <code>.env</code>.</li>
+          <li>Run <code>python -m phpelefant_discord.main</code>.</li>
+        </ol>
+      </section>
+
+      <section id="terms">
+        <h2>Terms Of Service</h2>
+        <p>
+          PHPelefant is provided as a community management tool. Server owners are responsible for
+          configuring permissions, moderation policies, and third-party media usage according to
+          Discord rules and local law. Abuse of owner-only shell, broadcast, or moderation controls
+          is not supported.
+        </p>
+      </section>
+
+      <section id="privacy">
+        <h2>Privacy Policy</h2>
+        <p>
+          PHPelefant stores Discord IDs, usernames, server IDs, moderation actions, warnings,
+          ticket metadata, activity counts, XP, and configuration needed to operate the bot.
+          Ticket transcripts are generated only when staff or users request them. Database backups
+          should be treated as private operational data.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <span>PHPelefant</span>
+      <span>Built for Discord communities that need practical tooling.</span>
+    </footer>
+  </body>
+</html>

@@ -314,10 +314,12 @@ or your own blog/Akkoma feed URL; the bot intentionally avoids scraping.
 Music:
 
 - Slash: `music join`, `music play <song_url_or_query>`, `music playlist <playlist_url>`
-- Slash: `music pause`, `music resume`, `music loop [on|off]`, `music nowplaying`, `music stop`, `music leave`
-- Prefix aliases: `join`, `play`, `playlist`, `pause`, `resume`, `loop`, `nowplaying`, `stop`, `leave`
+- Slash: `music pause`, `music resume`, `music skip [count]`, `music queue`, `music remove <position>`, `music clear`, `music shuffle`
+- Slash: `music loop [on|off]`, `music volume [0-200]`, `music nowplaying`, `music stop`, `music leave`
+- Prefix aliases: `join`, `play`, `playlist`, `pause`, `resume`, `skip`, `queue`, `q`, `remove`, `clear`, `shuffle`, `loop`, `volume`, `nowplaying`, `stop`, `leave`
 
-Music requires `PyNaCl`, `yt-dlp`, and the FFmpeg binary installed on the host.
+Music requires `davey`, `PyNaCl`, `yt-dlp`, and the FFmpeg binary installed on the host.
+Install Python dependencies from inside the same `.venv` used to run the bot, then restart the bot process.
 
 Owner:
 

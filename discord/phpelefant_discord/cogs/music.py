@@ -7,7 +7,6 @@ import contextlib
 from dataclasses import dataclass
 import random
 import shutil
-import subprocess
 import time
 
 import aiohttp
@@ -23,6 +22,17 @@ SPOTIFY_API_BASE = "https://api.spotify.com/v1"
 SPOTIFY_OEMBED_URL = "https://open.spotify.com/oembed"
 STARTUP_FAILURE_SECONDS = 8
 MAX_STARTUP_FAILURES = 3
+
+
+class NullAudioLog:
+    def write(self, data: bytes) -> int:
+        return len(data)
+
+    def flush(self) -> None:
+        return None
+
+
+NULL_AUDIO_LOG = NullAudioLog()
 
 
 @dataclass(slots=True)
@@ -701,7 +711,7 @@ class Music(commands.Cog):
                     next_track.stream_url,
                     before_options=before_options,
                     options="-vn -loglevel error",
-                    stderr=subprocess.DEVNULL,
+                    stderr=NULL_AUDIO_LOG,
                 ),
                 volume=state.volume,
             )
